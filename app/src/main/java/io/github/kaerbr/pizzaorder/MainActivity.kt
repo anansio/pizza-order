@@ -224,6 +224,7 @@ private fun MainScaffold(
                 when (page) {
                     0 -> OrderScreen(
                         menu = state.menu,
+                        nextNumber = state.nextNumber,
                         onSubmit = vm::submitOrder,
                     )
                     else -> OrdersListScreen(

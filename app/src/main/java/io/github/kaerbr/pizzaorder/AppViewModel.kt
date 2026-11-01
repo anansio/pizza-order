@@ -22,7 +22,10 @@ data class AppState(
     /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
     val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,
-)
+) {
+    // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
+    val nextNumber get() = (orders.maxOfOrNull { it.number } ?: 0) + 1
+}
 
 /** [printout] is the exact markup sent to the printer, so the on-screen slip matches the paper one. */
 data class Confirmation(val order: Order, val printout: String)
@@ -110,8 +113,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val menuAfter = _state.value.menu.takeDough() ?: return
         updateMenu { menuAfter }
 
-        // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
-        val number = (_state.value.orders.maxOfOrNull { it.number } ?: 0) + 1
+        val number = _state.value.nextNumber
         val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza))
 
         val markup = printout(order)

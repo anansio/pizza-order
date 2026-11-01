@@ -1,12 +1,6 @@
 package io.github.kaerbr.pizzaorder.ui
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -37,14 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.outlined.Eco
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -58,8 +47,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -95,6 +82,8 @@ internal val QuickMenuSize = ChipHeight
 @Composable
 fun OrderScreen(
     menu: MenuConfig,
+    /** Shown on the ticket in the dock; the order gets it once submitted. */
+    nextNumber: Int,
     onSubmit: (customer: String, pizza: Pizza, note: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -203,97 +192,17 @@ fun OrderScreen(
             }
         }
 
-        // Dock: order summary + submit, pinned to the bottom. Tinted so "your order" stands apart from
-        // the form; page switch and settings float top-right (MainActivity) and stay out of here.
-        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
-        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    // Fades "· Vegan" → "· Vegetarisch (Käse)" as guests add toppings, same ease as the button.
-                    val dietSuffix = when (diet) {
-                        Diet.VEGAN -> " · ${diet.label}"
-                        Diet.VEGETARIAN -> " · ${diet.label} (${menu.dietCulprits(current).joinToString()})"
-                        Diet.NONE -> ""
-                    }
-                    // Dough stock rides in the eyebrow line instead of a third line under the summary.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Crossfade(
-                            dietSuffix, animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "diet",
-                            modifier = Modifier.weight(1f, fill = false),
-                        ) {
-                            Eyebrow("Deine Bestellung$it", maxLines = 1)
-                        }
-                        menu.dough?.let { d ->
-                            Eyebrow(
-                                if (d.isSoldOut) " · Ausverkauft" else " · Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
-                                maxLines = 1,
-                                color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    Text(
-                        when {
-                            pizzaName == null -> "Noch keine Pizza gewählt"
-                            customer.isBlank() -> pizzaName
-                            else -> "$pizzaName für ${customer.trim()}"
-                        },
-                        style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                // Required steps: name and sauce (no toppings is fine, Marinara-style).
-                // The button fills from the left as they get done and only enables when all are.
-                val steps = listOf(customer.isNotBlank(), sauceName.isNotBlank())
-                val soldOut = menu.dough?.isSoldOut == true
-                val complete = steps.all { it } && !soldOut
-                // One slow ease for fill, colour and text so enabling doesn't snap: the button is always
-                // transparent and everything visible is this animated fill.
-                val ease = tween<Float>(durationMillis = 700, easing = FastOutSlowInEasing)
-                val progress by animateFloatAsState(steps.count { it } / steps.size.toFloat(), ease, label = "progress")
-                val fillAlpha by animateFloatAsState(if (complete) 1f else 0.35f, ease, label = "fillAlpha")
-                val contentColor by animateColorAsState(
-                    if (complete) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                    tween(durationMillis = 700, easing = FastOutSlowInEasing), label = "content",
-                )
-                val shape = RoundedCornerShape(14.dp)
-                val fill = MaterialTheme.colorScheme.primary
-                Button(
-                    onClick = {
-                        onSubmit(customer, current, note)
-                        customer = ""; note = ""
-                        sauceName = ""; toppingNames = emptyList(); customPicked = false
-                    },
-                    enabled = complete,
-                    shape = shape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent, contentColor = contentColor,
-                        disabledContainerColor = Color.Transparent, disabledContentColor = contentColor,
-                    ),
-                    modifier = Modifier
-                        .heightIn(min = ControlHeight).widthIn(min = 260.dp)
-                        .clip(shape)
-                        .background(MaterialTheme.colorScheme.surface)
-                        .drawBehind { drawRect(fill.copy(alpha = fillAlpha), size = size.copy(width = size.width * progress)) },
-                ) {
-                    Icon(Icons.Default.Print, null)
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        when {
-                            soldOut -> "Kein Teig mehr"
-                            customer.isBlank() -> "Erst Namen eingeben"
-                            sauceName.isBlank() -> "Erst Sauce wählen"
-                            else -> "Bestellen & drucken"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        }
+        // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
+        // float top-right (MainActivity) and stay out of here.
+        PeelDock(
+            DockOrder(customer, pizzaName, sauceName, toppingNames, diet, menu.dietCulprits(current), menu.dough),
+            number = nextNumber,
+            onSubmit = {
+                onSubmit(customer, current, note)
+                customer = ""; note = ""
+                sauceName = ""; toppingNames = emptyList(); customPicked = false
+            },
+        )
     }
 }
 

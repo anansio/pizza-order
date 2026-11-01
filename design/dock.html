@@ -185,32 +185,48 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
 /* =========================================================
    B · Der Ofenschieber
    ========================================================= */
-.peel-dock {
-  background: var(--accent-soft); border-top: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  padding: 12px 20px 14px; display: grid; gap: 10px;
+/* Floating card instead of a full-width band: nearly the page's own tone, separated by a hairline and a
+   soft shadow, so the dock no longer shouts against the light form. */
+.peel-wrap { padding: 4px 12px 12px; }
+.peel-card {
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 28px; padding: 14px 14px 14px 18px; display: grid; gap: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 16px 32px -20px color-mix(in srgb, var(--ink) 35%, transparent);
 }
-.peel-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
-.peel-title { font-family: var(--font-display); font-size: 20px; flex: 1 1 200px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.check {
-  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-  border: 1px dashed var(--muted); color: var(--muted); transition: all .4s;
+.peel-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.peel-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.peel-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peel-meta .low { color: var(--danger); }
+.peel-meta.flash { animation: metaflash .6s 2; }
+@keyframes metaflash { 50% { color: var(--danger); } }
+.peel-title { font-family: var(--font-display); font-size: 20px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.steps-b { display: flex; gap: 12px; flex: none; }
+.step {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted);
+  transition: color .4s;
 }
-.check.ok { border: 1px solid transparent; background: var(--ready-bg); color: var(--ready-ink); }
-.check.bad { border-color: var(--danger); color: var(--danger); }
-.check.flash { animation: flash .6s 2; }
-@keyframes flash { 50% { background: var(--danger); color: var(--accent-ink); } }
+.step i {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 55%, transparent); color: transparent; transition: all .4s;
+}
+.step.ok { color: var(--ink); }
+.step.ok i { background: var(--ready-ink); border-color: var(--ready-ink); color: var(--surface); }
+.step.flash { animation: stepflash .6s 2; }
+.step.flash i { animation: stepflashi .6s 2; }
+@keyframes stepflash { 50% { color: var(--danger); } }
+@keyframes stepflashi { 50% { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent); } }
 
 .track {
   --x: 0px;
-  position: relative; height: 60px; border-radius: 30px; background: var(--surface);
-  border: 1.5px solid var(--line); overflow: hidden; touch-action: none; user-select: none;
-  transition: border-color .5s;
+  position: relative; height: 60px; border-radius: 30px;
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface));
+  border: 1.5px solid transparent; touch-action: none; user-select: none;
+  transition: background .6s;
 }
-.track.ready { border-color: var(--accent); }
+.track.ready { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
 .track-fill {
-  position: absolute; inset: 0 auto 0 0; width: calc(var(--x) + 56px);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 55%, transparent));
+  position: absolute; inset: 0 auto 0 0; width: calc(var(--x) + 28.5px); opacity: var(--fill, 0);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 38%, transparent));
   border-radius: 30px;
 }
 .track-label {
@@ -224,29 +240,42 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
   animation: shimmer 2.6s linear infinite;
 }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+/* Knob and oven: same size, each concentric with one round end of the track (padding box 57px high). */
 .oven {
-  position: absolute; right: 6px; top: 6px; width: 46px; height: 46px; border-radius: 23px 23px 8px 8px;
-  background: #3a2a22; display: grid; place-items: end center; padding-bottom: 7px; overflow: hidden;
+  --glow: .3;
+  /* Bigger than the track: next to a pizza-sized oven the pizza looked like it couldn't fit in.
+     Concentric with the track's right end (centre 28.5px in), spilling into the card's padding. */
+  position: absolute; right: -6px; top: -6px; width: 69px; height: 69px; border-radius: 50%;
+  background: radial-gradient(circle, #4a3328, #261a15 70%);
+  /* Hairline so the dark oven still reads on the dark track in dark mode. */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 80%, #fff 10%);
 }
-.oven::before {
-  content: ""; width: 28px; height: 18px; border-radius: 14px 14px 2px 2px;
-  background: radial-gradient(ellipse at 50% 100%, #ffcf5a, #f0702a 45%, #8b2a12 80%);
-  opacity: .35; transition: opacity .5s;
+.oven::before, .oven::after {
+  content: ""; position: absolute; left: 50%; bottom: 17px; width: 45px; height: 35px;
+  margin-left: -22.5px; border-radius: 22.5px 22.5px 0 0;
 }
-.track.ready .oven::before { opacity: 1; animation: flicker 1.2s ease-in-out infinite alternate; }
-@keyframes flicker { to { filter: brightness(1.25) saturate(1.2); transform: scaleY(1.08); } }
+.oven::before { background: #140c09; }
+.oven::after {
+  background: radial-gradient(ellipse 100% 120% at 50% 100%, #ffd36a, #f0702a 45%, transparent 80%);
+  opacity: var(--glow); transition: opacity .3s;
+}
+.track.ready .oven::after { animation: flicker .6s ease-in-out infinite alternate; }
+@keyframes flicker { to { filter: brightness(1.25) saturate(1.2); } }
 .knob {
-  position: absolute; left: 4px; top: 4px; width: 50px; height: 50px; border-radius: 50%;
+  position: absolute; left: 4px; top: 4px; width: 49px; height: 49px; border-radius: 50%;
   transform: translateX(var(--x)); cursor: grab; background: var(--surface);
   box-shadow: 0 4px 10px -3px rgba(0, 0, 0, .35); display: grid; place-items: center;
 }
 .knob:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.knob svg { width: 46px; height: 46px; }
+.knob svg { width: 43px; height: 43px; }
 .track.spring .knob, .track.spring .track-fill { transition: transform .45s cubic-bezier(.3, 1.5, .5, 1), width .45s cubic-bezier(.3, 1.5, .5, 1); }
 .track.locked .knob { cursor: not-allowed; }
+/* Ready: a soft accent ring on the pizza says "grab me". */
+.knob { transition: box-shadow .6s; }
+.track.ready .knob { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent), 0 6px 14px -4px color-mix(in srgb, var(--accent) 60%, transparent); }
 .track.wiggle .knob { animation: wiggle .45s; }
 @keyframes wiggle { 20%, 60% { margin-left: 8px; } 40%, 80% { margin-left: -4px; } }
-.track.done .knob { transition: transform .3s ease-in, opacity .3s .2s; opacity: 0; }
+.track.done .knob { transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .1s .3s; transform: translateX(var(--x)) scale(.45); opacity: 0; }
 
 /* =========================================================
    C · Live-Pizza
@@ -359,18 +388,22 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
   <section class="variant">
     <div class="variant-head"><span class="num">B</span><h2>Der Ofenschieber</h2></div>
     <div class="notes">
-      <div><b>Idee:</b> Bestellt wird, indem man die Pizza mit dem Schieber in den Ofen zieht. Die Häkchen oben zeigen, was noch fehlt. Wer zu früh schiebt, sieht die Pizza wackeln und das fehlende Feld blinken. Sobald alles passt, glüht der Ofen.</div>
+      <div><b>Idee:</b> Bestellt wird, indem man die Pizza mit dem Schieber in den Ofen zieht. Die Leiste schwebt als ruhige Karte über dem Formular. Die Häkchen oben zeigen, was noch fehlt. Wer zu früh schiebt, sieht die Pizza wackeln und das fehlende Feld blinken. Sobald alles passt, glüht der Ofen.</div>
       <div><b>Gut:</b><ul><li>Keine versehentlichen Doppelbestellungen auf der Party</li><li>Macht Spaß, Kinder lieben so was</li></ul><b>Haken:</b><ul><li>Ziehen ist langsamer als Tippen (Fallback: Enter oder Doppeltipp)</li></ul></div>
     </div>
     <div class="frame" id="frameB">
       <div class="toast"></div>
       <div class="form-ghost" aria-hidden="true"><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div></div><div class="ghost-h"></div><div class="ghost-row"><div class="ghost-chip"></div><div class="ghost-chip"></div><div class="ghost-chip"></div></div></div>
-      <div class="peel-dock">
+      <div class="peel-wrap"><div class="peel-card">
         <div class="peel-info">
-          <span class="peel-title" id="peelTitle"></span>
-          <span class="check" id="chkName">Name</span>
-          <span class="check" id="chkSauce">Sauce</span>
-          <span class="check" id="chkDough"></span>
+          <div class="peel-text">
+            <div class="eyebrow peel-meta" id="peelMeta"></div>
+            <div class="peel-title" id="peelTitle"></div>
+          </div>
+          <div class="steps-b">
+            <span class="step" id="chkName"><i>✓</i>Name</span>
+            <span class="step" id="chkSauce"><i>✓</i>Sauce</span>
+          </div>
         </div>
         <div class="track" id="track">
           <div class="track-fill"></div>
@@ -378,7 +411,7 @@ header.top { display: flex; gap: 16px; align-items: flex-start; justify-content:
           <div class="oven" aria-hidden="true"></div>
           <div class="knob" id="knob" tabindex="0" role="button"></div>
         </div>
-      </div>
+      </div></div>
     </div>
   </section>
 
@@ -523,30 +556,35 @@ $('#stamp').addEventListener('click', () => {
 const track = $('#track'), knob = $('#knob');
 function renderB(d) {
   $('#peelTitle').textContent = !d.pizza ? 'Noch keine Pizza gewählt' : d.name ? `${d.pizza} für ${d.name}` : d.pizza;
-  $('#chkName').className = 'check ' + (d.steps[0] ? 'ok' : '');
-  $('#chkName').textContent = (d.steps[0] ? '✓ ' : '') + 'Name';
-  $('#chkSauce').className = 'check ' + (d.steps[1] ? 'ok' : '');
-  $('#chkSauce').textContent = (d.steps[1] ? '✓ ' : '') + 'Sauce';
-  const cd = $('#chkDough');
-  cd.hidden = state.dough === null;
-  cd.textContent = d.soldOut ? 'Ausverkauft' : `Teig ${state.dough ?? ''}`;
-  cd.className = 'check ' + (d.low ? 'bad' : 'ok');
+  $('#chkName').className = 'step' + (d.steps[0] ? ' ok' : '');
+  $('#chkSauce').className = 'step' + (d.steps[1] ? ' ok' : '');
+  // Dough rides in the meta line instead of a third check.
+  const dough = state.dough === null ? '' : ` · <span class="${d.low ? 'low' : ''}">${doughText()}</span>`;
+  $('#peelMeta').innerHTML = `Bon #${String(state.orderNo).padStart(3, '0')}${d.diet ? ' · ' + d.diet : ''}${dough}`;
   track.classList.toggle('ready', d.complete);
+  setX(parseFloat(track.style.getPropertyValue('--x')) || 0);
   track.classList.toggle('locked', !d.complete);
   $('#trackLabel').textContent = d.complete ? 'Pizza in den Ofen schieben  ›››' : d.label;
   knob.innerHTML = pizzaSVG();
   knob.setAttribute('aria-label', d.complete ? 'Bestellen: Pizza in den Ofen schieben' : d.label);
 }
-function maxX() { return track.clientWidth - 56 - 52; }
-function setX(x) { track.style.setProperty('--x', x + 'px'); }
+function maxX() { return track.clientWidth - 28.5 - 34.5 - 4 - 49; }
+function setX(x) {
+  track.style.setProperty('--x', x + 'px');
+  // Label gets out of the way, embers flare as the pizza nears the oven.
+  const p = Math.min(1, x / maxX());
+  $('#trackLabel').style.opacity = 1 - Math.min(1, p * 1.6);
+  track.style.setProperty('--fill', Math.min(1, p * 6));
+  $('.oven', track).style.setProperty('--glow', (track.classList.contains('ready') ? .7 : .3) + p * .3);
+}
 function nudgeMissing() {
   const d = derived();
   track.classList.remove('wiggle'); void track.offsetWidth; track.classList.add('wiggle');
-  const miss = !d.steps[0] ? '#chkName' : !d.steps[1] ? '#chkSauce' : '#chkDough';
-  const el = $(miss); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash', 'bad');
+  const miss = !d.steps[0] ? '#chkName' : !d.steps[1] ? '#chkSauce' : '#peelMeta';
+  const el = $(miss); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
 function finishB() {
-  track.classList.add('spring'); setX(maxX() + 52); track.classList.add('done');
+  track.classList.add('spring'); setX(track.clientWidth - 57); track.classList.add('done');
   submit('frameB', () => {});
   setTimeout(() => { track.classList.remove('done'); setX(0); setTimeout(() => track.classList.remove('spring'), 450); }, 700);
 }
