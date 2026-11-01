@@ -89,8 +89,6 @@ internal val QuickMenuSize = ChipHeight
 @Composable
 fun OrderScreen(
     menu: MenuConfig,
-    /** Shown on the ticket in the dock; the order gets it once submitted. */
-    nextNumber: Int,
     onSubmit: (customer: String, pizza: Pizza, note: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -141,7 +139,16 @@ fun OrderScreen(
                     )
                 }
 
-                Section("02", "Pizza wählen") {
+                // Dough sits where guests decide; once sold out, the peel says so too and stays in view.
+                Section("02", "Pizza wählen", trailing = {
+                    menu.dough?.let { d ->
+                        Eyebrow(
+                            if (d.isSoldOut) "Ausverkauft" else "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                            maxLines = 1,
+                            color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }) {
                     // Eigenkreation only shows a diet while it's the one being built.
                     val building = pizzaName == CUSTOM_NAME
                     val tiles = menu.presets.map { Tile(it.name, it.description, menu.dietOf(it), menu.allergensOf(it)) } +
@@ -204,8 +211,7 @@ fun OrderScreen(
         // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
         // float top-right (MainActivity) and stay out of here.
         PeelDock(
-            DockOrder(customer, pizzaName, sauceName, toppingNames, diet, menu.dietCulprits(current), allergens, menu.dough),
-            number = nextNumber,
+            DockOrder(customer, pizzaName, sauceName, toppingNames, menu.dough?.isSoldOut == true),
             onSubmit = {
                 onSubmit(customer, current, note)
                 customer = ""; note = ""

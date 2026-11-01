@@ -99,12 +99,6 @@ data class MenuConfig(
     /** As strict as its least strict ingredient; a bare crust counts as vegan. */
     fun dietOf(pizza: Pizza) = ingredients(pizza).maxOfOrNull { dietOf(it) } ?: Diet.VEGAN
 
-    /** The ingredients that set [pizza]'s diet, e.g. "Käse" on a Margherita. Empty when vegan. */
-    fun dietCulprits(pizza: Pizza): List<String> {
-        val diet = dietOf(pizza)
-        return if (diet == Diet.VEGAN) emptyList() else ingredients(pizza).filter { dietOf(it) == diet }
-    }
-
     // Blank sauce = Eigenkreation before a sauce is picked.
     private fun ingredients(pizza: Pizza) = (listOf(pizza.sauce.name) + pizza.toppings.map { it.name }).filter(String::isNotBlank)
 

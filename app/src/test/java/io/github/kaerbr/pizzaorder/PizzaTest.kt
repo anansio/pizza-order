@@ -22,7 +22,6 @@ class PizzaTest {
         fun pizza(sauce: String, vararg toppings: String) = Pizza("x", Sauce(sauce), Pizza.toppingsOf(toppings.toList()))
         assertEquals(Diet.VEGAN, menu.dietOf(pizza("Tomate", "Rucola")))
         assertEquals(Diet.VEGETARIAN, menu.dietOf(pizza("Tomate", "Rucola", "Käse")))
-        assertEquals(listOf("Käse"), menu.dietCulprits(pizza("Tomate", "Rucola", "Käse")))
         assertEquals(Diet.NONE, menu.dietOf(pizza("Tomate", "Käse", "Salami")))
         assertEquals(Diet.NONE, menu.dietOf(pizza("Tomate", "Unbekannt")))  // untagged never claims vegan
         assertEquals(Diet.VEGAN, menu.dietOf(pizza("")))                    // nothing picked yet

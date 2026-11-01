@@ -1,6 +1,5 @@
 package io.github.kaerbr.pizzaorder.ui
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -76,9 +75,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import io.github.kaerbr.pizzaorder.Allergen
-import io.github.kaerbr.pizzaorder.Diet
-import io.github.kaerbr.pizzaorder.DoughStock
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -93,27 +89,13 @@ internal data class DockOrder(
     val pizzaName: String?,
     val sauce: String,
     val toppings: List<String>,
-    val diet: Diet,
-    val dietCulprits: List<String>,
-    val allergens: Set<Allergen>,
-    val dough: DoughStock?,
+    val soldOut: Boolean,
 ) {
     // Required steps: name and sauce (no toppings is fine, Marinara-style).
     val hasName get() = customer.isNotBlank()
     val hasSauce get() = sauce.isNotBlank()
-    val soldOut get() = dough?.isSoldOut == true
     val complete get() = hasName && hasSauce && !soldOut
 }
-
-// "Vegan · Enthält Nüsse": allergens ride along in the same eyebrow line as the diet.
-private fun DockOrder.dietLabel(): String? = listOfNotNull(
-    when (diet) {
-        Diet.VEGAN -> diet.label
-        Diet.VEGETARIAN -> "${diet.label} (${dietCulprits.joinToString()})"
-        Diet.NONE -> null
-    },
-    allergens.takeIf { it.isNotEmpty() }?.let { a -> "Enthält ${a.joinToString { it.label }}" },
-).joinToString(" · ").ifEmpty { null }
 
 // One slow ease for every state change in the dock, so filling in the form never snaps.
 private fun <T> ease(): FiniteAnimationSpec<T> = tween(durationMillis = 700, easing = FastOutSlowInEasing)
@@ -132,7 +114,7 @@ private val OvenSize = 68.dp
  * Double tap and TalkBack's click also order, for anyone who can't drag.
  */
 @Composable
-internal fun PeelDock(order: DockOrder, number: Int, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PeelDock(order: DockOrder, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     // The pointer handlers outlive recompositions: without this they'd submit the name as it was when they started.
@@ -144,12 +126,6 @@ internal fun PeelDock(order: DockOrder, number: Int, onSubmit: () -> Unit, modif
     fun nudge() {
         scope.launch { wiggle.animateTo(0f, keyframes { durationMillis = 450; 8f at 90; -4f at 180; 8f at 270; -4f at 360 }) }
         scope.launch { flash.animateTo(0f, keyframes { durationMillis = 1200; 1f at 200; 0f at 500; 1f at 700 }) }
-    }
-    // Only the first missing step flashes, so the eye goes straight to it.
-    val missing = when {
-        !order.hasName -> 0
-        !order.hasSauce -> 1
-        else -> 2
     }
 
     // A floating card in nearly the page's own tone, set apart by a hairline and a soft shadow: the tinted
@@ -166,39 +142,19 @@ internal fun PeelDock(order: DockOrder, number: Int, onSubmit: () -> Unit, modif
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.weight(1f)) {
-                // Dough rides in this line instead of a third check; it's what flashes when sold out.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Fades "· Vegan" → "· Vegetarisch (Käse)" as guests add toppings.
-                    Crossfade(
-                        order.dietLabel(), animationSpec = ease(), label = "diet",
-                        modifier = Modifier.weight(1f, fill = false),
-                    ) { diet ->
-                        Eyebrow("Bon #%03d".format(number) + (diet?.let { " · $it" } ?: ""), maxLines = 1)
-                    }
-                    order.dough?.let { d ->
-                        Eyebrow(
-                            if (d.isSoldOut) " · Ausverkauft" else " · Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
-                            maxLines = 1,
-                            color = lerp(
-                                if (d.isSoldOut || d.isLow) colors.error else colors.onSurfaceVariant,
-                                colors.error, if (missing == 2) flash.value else 0f,
-                            ),
-                        )
-                    }
-                }
-                Text(
-                    when {
-                        order.pizzaName == null -> "Noch keine Pizza gewählt"
-                        !order.hasName -> order.pizzaName
-                        else -> "${order.pizzaName} für ${order.customer.trim()}"
-                    },
-                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-            StepCheck("Name", order.hasName, if (missing == 0) flash.value else 0f)
-            StepCheck("Sauce", order.hasSauce, if (missing == 1) flash.value else 0f)
+            Text(
+                when {
+                    order.pizzaName == null -> "Noch keine Pizza gewählt"
+                    !order.hasName -> order.pizzaName
+                    else -> "${order.pizzaName} für ${order.customer.trim()}"
+                },
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // Only the first missing step flashes, so the eye goes straight to it.
+            StepCheck("Name", order.hasName, if (!order.hasName) flash.value else 0f)
+            StepCheck("Sauce", order.hasSauce, if (order.hasName && !order.hasSauce) flash.value else 0f)
         }
 
         PeelTrack(
