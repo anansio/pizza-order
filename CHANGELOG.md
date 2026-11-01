@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/kaerbr/[secure]/compare/v1.8.0...v1.8.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* Bon läuft unabhängig von der Android-Animationsdauer ([9e8e3cf](https://github.com/kaerbr/[secure]/commit/9e8e3cf6d958e89a13f6334be27567608b2f3580))
+
 # [1.8.0](https://github.com/kaerbr/[secure]/compare/v1.7.0...v1.8.0) (2026-11-01)
 
 
