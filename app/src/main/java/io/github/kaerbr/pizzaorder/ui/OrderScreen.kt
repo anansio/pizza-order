@@ -1,10 +1,13 @@
 package io.github.kaerbr.pizzaorder.ui
 
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -50,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -252,8 +257,21 @@ internal fun DietBadge(diet: Diet, modifier: Modifier = Modifier) {
 @Composable
 internal fun AllergenMark(allergen: Allergen, modifier: Modifier = Modifier) {
     val color = MaterialTheme.colorScheme.secondary
-    Box(modifier.size(16.dp).border(1.dp, color, CircleShape), contentAlignment = Alignment.Center) {
-        Text(allergen.short, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = color)
+    // Drawn by hand and centred on the glyph's ink bounds: a Text centres its line box, which leaves room
+    // for descenders and line spacing, so a capital "N" sat visibly off-centre in the ring.
+    val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.LEFT } }
+    val bounds = remember { Rect() }
+    // contentDescription: as a Canvas the mark has no text of its own for TalkBack.
+    Canvas(modifier.size(16.dp).border(1.dp, color, CircleShape), contentDescription = allergen.label) {
+        paint.color = color.toArgb()
+        paint.textSize = 10.sp.toPx()
+        paint.getTextBounds(allergen.short, 0, allergen.short.length, bounds)
+        drawContext.canvas.nativeCanvas.drawText(
+            allergen.short,
+            center.x - bounds.exactCenterX(),
+            center.y - bounds.exactCenterY(),
+            paint,
+        )
     }
 }
 
