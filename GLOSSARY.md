@@ -24,6 +24,10 @@ _Avoid_: Lager, Stock
 Die Saucen, Beläge und vordefinierten Pizzen, aus denen Gäste wählen können.
 _Avoid_: Speisekarte, Konfiguration
 
+**Allergen**:
+Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose und Nüsse). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
+_Avoid_: Unverträglichkeit, Allergie
+
 **Standard-Menü**:
 Das mitgelieferte Menü, auf das sich das Menü im Admin-Panel zurücksetzen lässt.
 

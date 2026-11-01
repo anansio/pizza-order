@@ -99,7 +99,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun testPrint() = runPrint(
         printout((_state.value.menu.presets.firstOrNull() ?: Pizza("Margherita", MenuConfig.Standard.sauce, linkedSetOf())).let { pizza ->
-            Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza))
+            Order(number = 42, customer = "Testgast", pizza = pizza, note = "Nur ein Testdruck", diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza))
         }),
         TEST_PRINT_ID,
     )
@@ -114,7 +114,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         updateMenu { menuAfter }
 
         val number = _state.value.nextNumber
-        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza))
+        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza))
 
         val markup = printout(order)
         _state.update { it.copy(
@@ -163,6 +163,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun removeTopping(topping: Topping) = updateMenu { it.withoutTopping(topping) }
 
     fun setDiet(name: String, diet: Diet) = updateMenu { it.withDiet(name, diet) }
+
+    fun setAllergen(name: String, allergen: Allergen, contained: Boolean) = updateMenu { it.withAllergen(name, allergen, contained) }
 
     fun addPreset(pizza: Pizza) {
         val clean = pizza.name.trim()

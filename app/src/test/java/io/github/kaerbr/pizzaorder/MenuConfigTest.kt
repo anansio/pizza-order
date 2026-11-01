@@ -24,6 +24,15 @@ class MenuConfigTest {
         assertEquals(menu.sauces.map { it.name }.toSet() + menu.toppings.map { it.name }, menu.diets.keys)
     }
 
+    // Same trap as the diets: allergen keys must be names on the menu, or no mark ever shows.
+    @Test
+    fun standardAllergensAreKeyedByMenuNames() {
+        val menu = MenuConfig.Standard.menu
+        val names = menu.sauces.map { it.name }.toSet() + menu.toppings.map { it.name }
+        assertEquals(setOf("Pesto al basilico", "Pinienkerne"), menu.allergens.keys)
+        assertEquals(true, names.containsAll(menu.allergens.keys))
+    }
+
     @Test
     fun invalidMenuListsEveryProblem() {
         val e = assertThrows(IllegalArgumentException::class.java) {

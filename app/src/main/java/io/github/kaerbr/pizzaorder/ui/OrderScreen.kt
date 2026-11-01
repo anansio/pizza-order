@@ -1,6 +1,10 @@
 package io.github.kaerbr.pizzaorder.ui
 
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.Typeface
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import io.github.kaerbr.pizzaorder.Allergen
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Pizza
@@ -110,6 +117,7 @@ fun OrderScreen(
     val current = Pizza(pizzaName ?: CUSTOM_NAME, sauce, toppings)
     // No diet for an empty pizza: a bare crust would read as "Vegan" before anything is picked.
     val diet = if (nothingChosen) Diet.NONE else menu.dietOf(current)
+    val allergens = menu.allergensOf(current)
 
     Column(modifier.fillMaxSize()) {
         Column(
@@ -135,13 +143,14 @@ fun OrderScreen(
 
                 Section("02", "Pizza wählen") {
                     // Eigenkreation only shows a diet while it's the one being built.
-                    val tiles = menu.presets.map { Triple(it.name, it.description, menu.dietOf(it)) } +
-                        Triple(CUSTOM_NAME, "Sauce und Belag frei wählen", if (pizzaName == CUSTOM_NAME) diet else Diet.NONE)
+                    val building = pizzaName == CUSTOM_NAME
+                    val tiles = menu.presets.map { Tile(it.name, it.description, menu.dietOf(it), menu.allergensOf(it)) } +
+                        Tile(CUSTOM_NAME, "Sauce und Belag frei wählen", if (building) diet else Diet.NONE, if (building) allergens else emptySet())
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         tiles.chunked(3).forEach { row ->
                             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { (name, desc, tileDiet) ->
-                                    PizzaCard(name, desc, tileDiet, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
+                                row.forEach { (name, desc, tileDiet, tileAllergens) ->
+                                    PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                                         } ?: run { sauceName = ""; toppingNames = emptyList(); customPicked = true } // Eigenkreation: start empty
@@ -156,7 +165,7 @@ fun OrderScreen(
                 Section("03", "Sauce") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.sauces.forEach { s ->
-                            Pill(s.name, s.name == sauceName, diet = menu.dietOf(s.name)) { sauceName = s.name }
+                            Pill(s.name, s.name == sauceName, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name)) { sauceName = s.name }
                         }
                     }
                 }
@@ -165,7 +174,7 @@ fun OrderScreen(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
-                            Pill(t.name, selected, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name)) {
+                            Pill(t.name, selected, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name)) {
                                 toppingNames = if (selected) toppingNames - t.name else toppingNames + t.name
                             }
                         }
@@ -188,14 +197,14 @@ fun OrderScreen(
 
                 // Menu-style footnote: the leaves mark pizzas, sauces and toppings alike, so the key
                 // closes the form instead of sitting in one section.
-                DietLegend(Modifier.align(Alignment.CenterHorizontally))
+                DietLegend(menu, Modifier.align(Alignment.CenterHorizontally))
             }
         }
 
         // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
         // float top-right (MainActivity) and stay out of here.
         PeelDock(
-            DockOrder(customer, pizzaName, sauceName, toppingNames, diet, menu.dietCulprits(current), menu.dough),
+            DockOrder(customer, pizzaName, sauceName, toppingNames, diet, menu.dietCulprits(current), allergens, menu.dough),
             number = nextNumber,
             onSubmit = {
                 onSubmit(customer, current, note)
@@ -244,17 +253,75 @@ internal fun DietBadge(diet: Diet, modifier: Modifier = Modifier) {
     }
 }
 
+/** The letter in a ring that marks an allergen, e.g. "N" for Nüsse; [AllergenMarks] lines them up. */
 @Composable
-private fun DietLegend(modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+internal fun AllergenMark(allergen: Allergen, modifier: Modifier = Modifier) {
+    val color = MaterialTheme.colorScheme.secondary
+    // Drawn by hand and centred on the glyph's ink bounds: a Text centres its line box, which leaves room
+    // for descenders and line spacing, so a capital "N" sat visibly off-centre in the ring.
+    val paint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.LEFT } }
+    val bounds = remember { Rect() }
+    // contentDescription: as a Canvas the mark has no text of its own for TalkBack.
+    Canvas(modifier.size(16.dp).border(1.dp, color, CircleShape), contentDescription = allergen.label) {
+        paint.color = color.toArgb()
+        paint.textSize = 10.sp.toPx()
+        paint.getTextBounds(allergen.short, 0, allergen.short.length, bounds)
+        drawContext.canvas.nativeCanvas.drawText(
+            allergen.short,
+            center.x - bounds.exactCenterX(),
+            center.y - bounds.exactCenterY(),
+            paint,
+        )
+    }
+}
+
+/** Nothing for an empty set, so untagged ingredients stay as clean as before. */
+@Composable
+internal fun AllergenMarks(allergens: Set<Allergen>, modifier: Modifier = Modifier) {
+    if (allergens.isEmpty()) return
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        allergens.forEach { AllergenMark(it) }
+    }
+}
+
+/** The `.diet` pill's sibling for the order list: "ENTHÄLT LAKTOSE, NÜSSE"; nothing without allergens. */
+@Composable
+internal fun AllergenBadge(allergens: Set<Allergen>, modifier: Modifier = Modifier) {
+    if (allergens.isEmpty()) return
+    Row(
+        modifier.border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Enthält ${allergens.joinToString { it.label }}".uppercase(),
+            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 0.09.em,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+    }
+}
+
+// Allergen keys only for those somewhere on the menu: a "N = Nüsse" without any nuts is noise.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DietLegend(menu: MenuConfig, modifier: Modifier = Modifier) {
+    val used = menu.allergens.values.flatten().toSet()
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf(Diet.VEGAN, Diet.VEGETARIAN).forEach { d ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(d.icon!!, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
                 Text(d.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        Allergen.entries.filter { it in used }.forEach { a ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                AllergenMark(a)
+                Text("Enthält ${a.label}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
+
+private data class Tile(val name: String, val description: String, val diet: Diet, val allergens: Set<Allergen>)
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
@@ -335,7 +402,7 @@ private fun Section(
 }
 
 @Composable
-private fun PizzaCard(name: String, description: String, diet: Diet, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun PizzaCard(name: String, description: String, diet: Diet, allergens: Set<Allergen>, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
@@ -358,6 +425,7 @@ private fun PizzaCard(name: String, description: String, diet: Diet, selected: B
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 diet.icon?.let { Icon(it, diet.label, Modifier.size(16.dp), tint = colors.onTertiaryContainer) }
+                AllergenMarks(allergens)
             }
             Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         }
@@ -365,13 +433,18 @@ private fun PizzaCard(name: String, description: String, diet: Diet, selected: B
 }
 
 @Composable
-private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, onClick: () -> Unit) {
+private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, allergens: Set<Allergen> = emptySet(), onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
-        trailingIcon = diet.icon?.let { { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) } },
+        trailingIcon = if (diet.icon == null && allergens.isEmpty()) null else { {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                diet.icon?.let { Icon(it, diet.label, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
+                AllergenMarks(allergens)
+            }
+        } },
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface),
         border = FilterChipDefaults.filterChipBorder(

@@ -76,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import io.github.kaerbr.pizzaorder.Allergen
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import kotlinx.coroutines.launch
@@ -94,6 +95,7 @@ internal data class DockOrder(
     val toppings: List<String>,
     val diet: Diet,
     val dietCulprits: List<String>,
+    val allergens: Set<Allergen>,
     val dough: DoughStock?,
 ) {
     // Required steps: name and sauce (no toppings is fine, Marinara-style).
@@ -103,11 +105,15 @@ internal data class DockOrder(
     val complete get() = hasName && hasSauce && !soldOut
 }
 
-private fun DockOrder.dietLabel(): String? = when (diet) {
-    Diet.VEGAN -> diet.label
-    Diet.VEGETARIAN -> "${diet.label} (${dietCulprits.joinToString()})"
-    Diet.NONE -> null
-}
+// "Vegan · Enthält Nüsse": allergens ride along in the same eyebrow line as the diet.
+private fun DockOrder.dietLabel(): String? = listOfNotNull(
+    when (diet) {
+        Diet.VEGAN -> diet.label
+        Diet.VEGETARIAN -> "${diet.label} (${dietCulprits.joinToString()})"
+        Diet.NONE -> null
+    },
+    allergens.takeIf { it.isNotEmpty() }?.let { a -> "Enthält ${a.joinToString { it.label }}" },
+).joinToString(" · ").ifEmpty { null }
 
 // One slow ease for every state change in the dock, so filling in the form never snaps.
 private fun <T> ease(): FiniteAnimationSpec<T> = tween(durationMillis = 700, easing = FastOutSlowInEasing)
