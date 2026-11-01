@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/kaerbr/[secure]/compare/v1.6.0...v1.7.0) (2026-11-01)
+
+
+### Features
+
+* Bestellleiste verschlanken, Teig-Stand zur Pizza-Auswahl ([45b95c1](https://github.com/kaerbr/[secure]/commit/45b95c1acb9c1e205577ec2fda873ad1493e5d3c))
+
 # [1.6.0](https://github.com/kaerbr/[secure]/compare/v1.5.0...v1.6.0) (2026-11-01)
 
 
