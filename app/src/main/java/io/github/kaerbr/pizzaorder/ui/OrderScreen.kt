@@ -472,6 +472,8 @@ private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: Image
             enabled = true, selected = selected,
             borderColor = MaterialTheme.colorScheme.outline,
             selectedBorderColor = MaterialTheme.colorScheme.primary,
+            // Material's default is 0dp, which draws a 1px hairline; 2dp matches PizzaCard and the focused fields.
+            selectedBorderWidth = 2.dp,
         ),
         modifier = Modifier.heightIn(min = ChipHeight),
     )
