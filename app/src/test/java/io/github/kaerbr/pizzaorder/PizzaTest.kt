@@ -29,6 +29,19 @@ class PizzaTest {
     }
 
     @Test
+    fun pizzaHasEveryAllergenOfItsIngredients() {
+        val menu = MenuConfig.Standard.menu.copy(allergens = emptyMap())
+            .withAllergen("Käse", Allergen.LACTOSE, true)
+            .withAllergen("Pinienkerne", Allergen.NUTS, true)
+        fun pizza(sauce: String, vararg toppings: String) = Pizza("x", Sauce(sauce), Pizza.toppingsOf(toppings.toList()))
+        assertEquals(emptySet<Allergen>(), menu.allergensOf(pizza("Tomate", "Rucola")))
+        // Enum order, whatever order the toppings were picked in.
+        assertEquals(listOf(Allergen.LACTOSE, Allergen.NUTS), menu.allergensOf(pizza("Tomate", "Pinienkerne", "Käse")).toList())
+        // Switching the last one off drops the entry instead of keeping an empty set in menu.json.
+        assertEquals(mapOf("Pinienkerne" to setOf(Allergen.NUTS)), menu.withAllergen("Käse", Allergen.LACTOSE, false).allergens)
+    }
+
+    @Test
     fun dotRowFillsExactlyOneLine() {
         assertEquals(32, dotRow("Gast", "Laura").removePrefix("[L]").replace("<b>", "").replace("</b>", "").length)
     }

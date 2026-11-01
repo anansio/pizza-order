@@ -121,6 +121,7 @@ private fun OrderCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(order.pizza.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     DietBadge(order.diet)
+                    AllergenBadge(order.allergens)
                 }
                 Text(order.pizza.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (order.note.isNotBlank()) {

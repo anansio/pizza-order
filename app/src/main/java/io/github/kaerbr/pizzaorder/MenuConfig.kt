@@ -13,6 +13,8 @@ data class MenuConfig(
     // (OrderScreen) and compared by equality, a diet field would break every `in` check.
     // Unlisted = Diet.NONE, so nothing is ever labelled vegan by accident.
     val diets: Map<String, Diet> = Standard.diets,
+    // Same keying as [diets]. Unlisted = no allergens known: guests with allergies still ask, the marks only help.
+    val allergens: Map<String, Set<Allergen>> = Standard.allergens,
     // In menu.json, so every order's decrement is on disk right away. null = no limit (nothing counted or shown).
     val dough: DoughStock? = null,
 ) {
@@ -72,6 +74,18 @@ data class MenuConfig(
 
     fun dietOf(name: String) = diets[name] ?: Diet.NONE
 
+    /** Switches [allergen] on or off for one ingredient. */
+    fun withAllergen(name: String, allergen: Allergen, contained: Boolean): MenuConfig {
+        val next = if (contained) allergensOf(name) + allergen else allergensOf(name) - allergen
+        return copy(allergens = if (next.isEmpty()) allergens - name else allergens + (name to next))
+    }
+
+    fun allergensOf(name: String): Set<Allergen> = allergens[name].orEmpty()
+
+    /** Every allergen of any ingredient, in enum order. */
+    fun allergensOf(pizza: Pizza): Set<Allergen> =
+        ingredients(pizza).let { names -> Allergen.entries.filterTo(LinkedHashSet()) { a -> names.any { a in allergensOf(it) } } }
+
     /** Sets how many dough balls there are today and fills the stock to it; null lifts the limit. */
     fun withDoughToday(count: Int?) = copy(dough = count?.let { DoughStock(it.coerceAtLeast(0)) })
 
@@ -99,6 +113,8 @@ data class MenuConfig(
         // Declared before [menu]: building it reads these through the constructor defaults.
         // Keys via .sauce/.topping, the exact objects on the menu: an enum's own `name` is "KAESE", not "Käse".
         val diets = Sauce.entries.associate { it.sauce.name to it.diet } + Topping.entries.associate { it.topping.name to it.diet }
+        val allergens = (Sauce.entries.associate { it.sauce.name to it.allergens } + Topping.entries.associate { it.topping.name to it.allergens })
+            .filterValues { it.isNotEmpty() }
 
         // YouTube *search* links on purpose: they never go dead like single video IDs do.
         val funLinks = listOf(
@@ -142,14 +158,17 @@ data class MenuConfig(
         // Typed on purpose: presets take these, not strings, so an ingredient that isn't declared
         // here is a compile error. Only the built-ins; Settings still adds plain Sauce/Topping by name.
         // Everything vegan for now (vegan cheese, pesto and salami); retag in Settings when that changes.
-        private enum class Sauce(val label: String, val diet: Diet) {
+        // Allergens as best known for the party's ingredients (vegan cheese = no lactose); retag in Settings.
+        private enum class Sauce(val label: String, val diet: Diet, vararg allergens: Allergen) {
             TOMATE("Tomate", Diet.VEGAN),
-            PESTO("Pesto al basilico", Diet.VEGAN);
+            PESTO("Pesto al basilico", Diet.VEGAN, Allergen.NUTS);
+
+            val allergens = allergens.toSet()
 
             val sauce get() = Sauce(label)
         }
 
-        private enum class Topping(val label: String, val diet: Diet) {
+        private enum class Topping(val label: String, val diet: Diet, vararg allergens: Allergen) {
             ZWIEBELN("Zwiebeln", Diet.VEGAN),
             KNOBLAUCH("Knoblauch", Diet.VEGAN),
             SALAMI("Salami", Diet.VEGAN),
@@ -158,8 +177,9 @@ data class MenuConfig(
             RUCOLA("Rucola", Diet.VEGAN),
             BASILIKUM("Basilikum", Diet.VEGAN),
             KIRSCHTOMATEN("Kirschtomaten", Diet.VEGAN),
-            PINIENKERNE("Pinienkerne", Diet.VEGAN);
+            PINIENKERNE("Pinienkerne", Diet.VEGAN, Allergen.NUTS);
 
+            val allergens = allergens.toSet()
             val topping get() = Topping(label)
         }
     }

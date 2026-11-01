@@ -26,6 +26,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 🍕 **Vordefinierte Pizzen oder Eigenkreation**: Sauce und Beläge frei wählen
 - 🥖 **Teig-Zähler**: zeigt, wie viele Pizzen noch gehen, und nimmt bei 0 keine Bestellung mehr an
 - 🌱 **Vegan / Vegetarisch** wird aus den Zutaten erkannt und auf dem Ausdruck hervorgehoben
+- ⚠️ **Allergene** (Laktose, Nüsse) werden je Zutat im Admin-Panel gepflegt, an Zutaten, Pizzen und in der Bestellliste angezeigt und auf dem Ausdruck hervorgehoben
 - 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name und Notiz für die Küche
 - 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken
 - 🎨 **Acht Ausdruck-Designs** vom sparsamen Dreizeiler bis zum Pizza-Bild mit Rahmen
@@ -112,7 +113,7 @@ Vor jedem Debug-Build laufen die Unit-Tests (`./gradlew testDebugUnitTest`), dam
 
 **Flüssig oder nicht?** Debug-Builds laufen spürbar ruckeliger als die Release-APK, weil sie nicht optimiert werden. Um die Geschwindigkeit zu beurteilen, `./gradlew assemblePreview` bauen: optimiert wie das Release, aber mit dem Debug-Schlüssel signiert und als eigene App „Pizza Order (Preview)“ installierbar. Bei Pull Requests legt CI diese APK neben die Debug-APK.
 
-**Standard-Menü anpassen:** Das Menü, mit dem die App ausgeliefert wird, steht in [`MenuConfig.kt`](app/src/main/java/io/github/kaerbr/pizzaorder/MenuConfig.kt) (`MenuConfig.Standard`). Dort ist auch für jede Zutat hinterlegt, ob sie vegan oder vegetarisch ist.
+**Standard-Menü anpassen:** Das Menü, mit dem die App ausgeliefert wird, steht in [`MenuConfig.kt`](app/src/main/java/io/github/kaerbr/pizzaorder/MenuConfig.kt) (`MenuConfig.Standard`). Dort ist auch für jede Zutat hinterlegt, ob sie vegan oder vegetarisch ist und welche Allergene sie enthält.
 
 Die Begriffe, die im Projekt verwendet werden, erklärt das [Glossar](GLOSSARY.md).
 

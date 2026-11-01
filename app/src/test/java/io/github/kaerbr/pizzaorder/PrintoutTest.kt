@@ -39,11 +39,11 @@ class PrintoutTest {
 
     @Test
     fun everyStyleParsesWithoutStrayMarkup() {
-        val order = Order(number = 7, customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(listOf("Pilze"))), note = "knusprig", diet = Diet.VEGETARIAN)
+        val order = Order(number = 7, customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(listOf("Pilze"))), note = "knusprig", diet = Diet.VEGETARIAN, allergens = setOf(Allergen.LACTOSE, Allergen.NUTS))
         for (style in PrintStyle.entries) {
             val text = Printout.parse(style.format(order, FunLink("x", "https://example.org")))
                 .flatMap { it.segments }.filterIsInstance<TextSegment>().flatMap { it.runs }.joinToString("") { it.text }
-            assertTrue(style.name, "Anna" in text && "Funghi" in text)
+            assertTrue(style.name, "Anna" in text && "Funghi" in text && "LAKTOSE, NÜSSE" in text)
             assertTrue(style.name, '<' !in text && "[L]" !in text && "[C]" !in text && "[R]" !in text)
         }
     }

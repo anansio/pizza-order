@@ -15,6 +15,10 @@ data class Topping(val name: String)
 @Serializable
 enum class Diet(val label: String) { VEGAN("Vegan"), VEGETARIAN("Vegetarisch"), NONE("Nichts davon") }
 
+/** Allergens an ingredient can contain; [short] is the letter on chips and cards, explained in the legend. */
+@Serializable
+enum class Allergen(val label: String, val short: String) { LACTOSE("Laktose", "L"), NUTS("Nüsse", "N") }
+
 /** Today's prepared dough balls, one per pizza; [today] is the count set in Admin, shown as "Noch X von Y". */
 @Serializable
 data class DoughStock(val available: Int, val today: Int = available) {
@@ -56,6 +60,8 @@ data class Order(
     val completedAt: Long? = null,
     // Snapshot at order time, so later menu edits don't relabel what the kitchen already got.
     val diet: Diet = Diet.NONE,
+    // Same snapshot idea; sorted by enum order so it always reads "Laktose, Nüsse".
+    val allergens: Set<Allergen> = emptySet(),
 ) {
     fun isDone() = completedAt != null
     val formattedTime: String get() = SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(id))

@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.kaerbr.pizzaorder.Allergen
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
@@ -86,6 +87,7 @@ fun SettingsScreen(
     onAddTopping: (String) -> Unit,
     onRemoveTopping: (Topping) -> Unit,
     onSetDiet: (name: String, Diet) -> Unit,
+    onSetAllergen: (name: String, Allergen, contained: Boolean) -> Unit,
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
@@ -190,6 +192,18 @@ fun SettingsScreen(
                             AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
                         }
 
+                        Section(title = "Allergene") {
+                            Text(
+                                "Antippen markiert, was die Zutat enthält. Gäste sehen es an Zutaten, Pizzen und auf dem Ausdruck.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            // Sauces first, then toppings, as on the order screen; a name in both shows once.
+                            (menu.sauces.map { it.name } + menu.toppings.map { it.name }).distinct().forEach { name ->
+                                AllergenRow(name, menu.allergensOf(name)) { allergen, contained -> onSetAllergen(name, allergen, contained) }
+                            }
+                        }
+
                         Section(title = "Vordefinierte Pizzen") {
                             if (menu.presets.isEmpty()) {
                                 Text(
@@ -265,6 +279,22 @@ fun SettingsScreen(
 
                 Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun AllergenRow(name: String, contained: Set<Allergen>, onToggle: (Allergen, Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Allergen.entries.forEach { allergen ->
+            val selected = allergen in contained
+            FilterChip(
+                selected = selected,
+                onClick = { onToggle(allergen, !selected) },
+                label = { Text(allergen.label) },
+                leadingIcon = if (selected) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
+            )
         }
     }
 }
