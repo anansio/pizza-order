@@ -1,3 +1,16 @@
+# [1.8.0](https://github.com/kaerbr/[secure]/compare/v1.7.0...v1.8.0) (2026-11-01)
+
+
+### Bug Fixes
+
+* Rahmen ausgewählter Sauce- und Belag-Pills auf 2 dp angleichen ([3f3ca88](https://github.com/kaerbr/[secure]/commit/3f3ca885c2e5843608fa0123fefbf2649bba2889))
+* Textfeld per Tipp außerhalb abwählen ([dfbcd9c](https://github.com/kaerbr/[secure]/commit/dfbcd9c9f7d07738c67fd4282d62ebb26d48283d))
+
+
+### Features
+
+* Formular ohne Teig ausgrauen und sperren ([3d2175c](https://github.com/kaerbr/[secure]/commit/3d2175c479765b69bf85c19dc77c5e554f0b006b))
+
 # [1.7.0](https://github.com/kaerbr/[secure]/compare/v1.6.0...v1.7.0) (2026-11-01)
 
 
