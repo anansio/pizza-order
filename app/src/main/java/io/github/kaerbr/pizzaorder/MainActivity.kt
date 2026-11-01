@@ -95,6 +95,7 @@ import io.github.kaerbr.pizzaorder.ui.OrdersListScreen
 import io.github.kaerbr.pizzaorder.ui.PatternLock
 import io.github.kaerbr.pizzaorder.ui.SettingsScreen
 import io.github.kaerbr.pizzaorder.ui.theme.Palette
+import io.github.kaerbr.pizzaorder.ui.clearFocusOnOutsideTap
 import io.github.kaerbr.pizzaorder.ui.theme.PizzaTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -176,21 +177,23 @@ fun App(vm: AppViewModel) {
                 onDismiss = { showAppearance = false },
             )
         }
-        if (showSettings) {
-            BackHandler { showSettings = false }
-            SettingsScaffold(
-                vm = vm,
-                state = state,
-                onClose = { showSettings = false },
-            )
-        } else {
-            MainScaffold(
-                state = state,
-                pagerState = pagerState,
-                onOpenSettings = { showLock = true },
-                onOpenAppearance = { showAppearance = true },
-                vm = vm,
-            )
+        Box(Modifier.fillMaxSize().clearFocusOnOutsideTap()) {
+            if (showSettings) {
+                BackHandler { showSettings = false }
+                SettingsScaffold(
+                    vm = vm,
+                    state = state,
+                    onClose = { showSettings = false },
+                )
+            } else {
+                MainScaffold(
+                    state = state,
+                    pagerState = pagerState,
+                    onOpenSettings = { showLock = true },
+                    onOpenAppearance = { showAppearance = true },
+                    vm = vm,
+                )
+            }
         }
     }
 }
