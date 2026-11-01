@@ -1,3 +1,15 @@
+# [1.6.0](https://github.com/kaerbr/[secure]/compare/v1.5.0...v1.6.0) (2026-11-01)
+
+
+### Bug Fixes
+
+* Allergen-Buchstabe im Kreis exakt zentrieren ([caadadc](https://github.com/kaerbr/[secure]/commit/caadadcabdfa4dd029558c7aa9aeb85f7304be35))
+
+
+### Features
+
+* Allergene (Laktose, Nüsse) je Zutat pflegen und anzeigen ([a43775c](https://github.com/kaerbr/[secure]/commit/a43775c94f9bf092b47fc0f85814f6faffc90efc))
+
 # [1.5.0](https://github.com/kaerbr/[secure]/compare/v1.4.1...v1.5.0) (2026-11-01)
 
 
