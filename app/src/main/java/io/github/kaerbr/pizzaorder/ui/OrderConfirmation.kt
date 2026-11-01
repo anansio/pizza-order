@@ -2,8 +2,6 @@ package io.github.kaerbr.pizzaorder.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,10 +38,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -156,13 +156,17 @@ private fun Slip(markup: String) {
     val margin = slipWidth * ((PAPER_WIDTH_MM - Printout.PAPER_MM) / 2 / PAPER_WIDTH_MM)
 
     // Paper feed: slides down from above at the printer's speed, so a long slip takes longer, like on paper.
-    val feed = remember { Animatable(0f) }
+    // Own frame loop, not a tween: Android's animation-speed setting scales every Compose animation (0.5x
+    // doubles the speed, off skips it), and this has to match a real printer, whatever that's set to.
+    var feed by remember { mutableFloatStateOf(0f) }
     var heightPx by remember { mutableIntStateOf(0) }
     val slipWidthPx = with(LocalDensity.current) { slipWidth.toPx() }
     LaunchedEffect(heightPx > 0) {
         if (heightPx == 0) return@LaunchedEffect
         val paperMm = heightPx / slipWidthPx * PAPER_WIDTH_MM
-        feed.animateTo(1f, tween((paperMm / PRINT_SPEED_MM_PER_S * 1000).roundToInt(), easing = LinearEasing))
+        val durationMs = paperMm / PRINT_SPEED_MM_PER_S * 1000
+        val start = withFrameMillis { it }
+        while (feed < 1f) feed = withFrameMillis { (it - start) / durationMs }.coerceAtMost(1f)
     }
 
     BoxWithConstraints(
@@ -171,7 +175,7 @@ private fun Slip(markup: String) {
             .layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
                 layout(placeable.width, placeable.height) {
-                    placeable.placeRelative(0, ((feed.value - 1f) * placeable.height).roundToInt())
+                    placeable.placeRelative(0, ((feed - 1f) * placeable.height).roundToInt())
                 }
             }
             .width(slipWidth)
