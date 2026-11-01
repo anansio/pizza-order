@@ -51,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.nativeCanvas
@@ -116,12 +117,15 @@ fun OrderScreen(
     // No diet for an empty pizza: a bare crust would read as "Vegan" before anything is picked.
     val diet = if (nothingChosen) Diet.NONE else menu.dietOf(current)
     val allergens = menu.allergensOf(current)
+    // The form stays readable but greyed out and locked; the dock says why.
+    val soldOut = menu.dough?.isSoldOut == true
 
     Column(modifier.fillMaxSize()) {
         Column(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .alpha(if (soldOut) 0.45f else 1f)
                 .verticalScroll(rememberScrollState())
                 .padding(start = FormSidePadding, end = FormSidePadding, top = FormTop, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -135,17 +139,18 @@ fun OrderScreen(
                         placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        enabled = !soldOut,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
-                // Dough sits where guests decide; once sold out, the peel says so too and stays in view.
+                // Dough sits where guests decide.
                 Section("02", "Pizza wählen", trailing = {
-                    menu.dough?.let { d ->
+                    menu.dough?.takeUnless { it.isSoldOut }?.let { d ->
                         Eyebrow(
-                            if (d.isSoldOut) "Ausverkauft" else "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
+                            "Noch ${d.available} ${if (d.available == 1) "Pizza" else "Pizzen"}",
                             maxLines = 1,
-                            color = if (d.isSoldOut || d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (d.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }) {
@@ -157,7 +162,7 @@ fun OrderScreen(
                         tiles.chunked(3).forEach { row ->
                             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { (name, desc, tileDiet, tileAllergens) ->
-                                    PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, Modifier.weight(1f).fillMaxHeight()) {
+                                    PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, !soldOut, Modifier.weight(1f).fillMaxHeight()) {
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                                         } ?: run { sauceName = ""; toppingNames = emptyList(); customPicked = true } // Eigenkreation: start empty
@@ -172,7 +177,7 @@ fun OrderScreen(
                 Section("03", "Sauce") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.sauces.forEach { s ->
-                            Pill(s.name, s.name == sauceName, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name)) { sauceName = s.name }
+                            Pill(s.name, s.name == sauceName, !soldOut, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name)) { sauceName = s.name }
                         }
                     }
                 }
@@ -181,7 +186,7 @@ fun OrderScreen(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
-                            Pill(t.name, selected, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name)) {
+                            Pill(t.name, selected, !soldOut, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name)) {
                                 toppingNames = if (selected) toppingNames - t.name else toppingNames + t.name
                             }
                         }
@@ -198,6 +203,7 @@ fun OrderScreen(
                         placeholder = "z.B. extra knusprig, ohne Oregano…",
                         maxLines = 3,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        enabled = !soldOut,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -211,7 +217,7 @@ fun OrderScreen(
         // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
         // float top-right (MainActivity) and stay out of here.
         PeelDock(
-            DockOrder(customer, pizzaName, sauceName, toppingNames, menu.dough?.isSoldOut == true),
+            DockOrder(customer, pizzaName, sauceName, toppingNames, soldOut),
             onSubmit = {
                 onSubmit(customer, current, note)
                 customer = ""; note = ""
@@ -348,6 +354,7 @@ private fun CompactTextField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     keyboardOptions: KeyboardOptions,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
@@ -358,6 +365,7 @@ private fun CompactTextField(
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = modifier.heightIn(min = ControlHeight),
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -369,7 +377,7 @@ private fun CompactTextField(
         OutlinedTextFieldDefaults.DecorationBox(
             value = value,
             innerTextField = innerTextField,
-            enabled = true,
+            enabled = enabled,
             singleLine = singleLine,
             visualTransformation = VisualTransformation.None,
             interactionSource = interactionSource,
@@ -378,7 +386,7 @@ private fun CompactTextField(
             contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 12.dp, bottom = 12.dp),
             container = {
                 OutlinedTextFieldDefaults.Container(
-                    enabled = true,
+                    enabled = enabled,
                     isError = false,
                     interactionSource = interactionSource,
                     colors = colors,
@@ -408,10 +416,11 @@ private fun Section(
 }
 
 @Composable
-private fun PizzaCard(name: String, description: String, diet: Diet, allergens: Set<Allergen>, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun PizzaCard(name: String, description: String, diet: Diet, allergens: Set<Allergen>, selected: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = if (selected) colors.primaryContainer else colors.surface,
@@ -439,10 +448,11 @@ private fun PizzaCard(name: String, description: String, diet: Diet, allergens: 
 }
 
 @Composable
-private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, allergens: Set<Allergen> = emptySet(), onClick: () -> Unit) {
+private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, allergens: Set<Allergen> = emptySet(), onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
+        enabled = enabled,
         label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
         trailingIcon = if (diet.icon == null && allergens.isEmpty()) null else { {
@@ -452,7 +462,12 @@ private fun Pill(label: String, selected: Boolean, icon: ImageVector? = null, di
             }
         } },
         shape = CircleShape,
-        colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface),
+        // Disabled keeps the normal colours: the form's alpha does the greying, both together left the chips unreadable.
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surface,
+            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true, selected = selected,
             borderColor = MaterialTheme.colorScheme.outline,

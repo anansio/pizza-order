@@ -144,17 +144,21 @@ internal fun PeelDock(order: DockOrder, onSubmit: () -> Unit, modifier: Modifier
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
                 when {
+                    order.soldOut -> "Der Teig ist alle!"
                     order.pizzaName == null -> "Noch keine Pizza gewählt"
                     !order.hasName -> order.pizzaName
                     else -> "${order.pizzaName} für ${order.customer.trim()}"
                 },
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
+                color = if (order.soldOut) colors.error else Color.Unspecified,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            // Only the first missing step flashes, so the eye goes straight to it.
-            StepCheck("Name", order.hasName, if (!order.hasName) flash.value else 0f)
-            StepCheck("Sauce", order.hasSauce, if (order.hasName && !order.hasSauce) flash.value else 0f)
+            // Only the first missing step flashes, so the eye goes straight to it. Sold out, no step helps.
+            if (!order.soldOut) {
+                StepCheck("Name", order.hasName, if (!order.hasName) flash.value else 0f)
+                StepCheck("Sauce", order.hasSauce, if (order.hasName && !order.hasSauce) flash.value else 0f)
+            }
         }
 
         PeelTrack(
@@ -180,7 +184,15 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
     // Soft accent ring on the pizza once it can go: "grab me".
     val ring by animateFloatAsState(if (order.complete) 1f else 0f, ease(), label = "knobRing")
     // Embers smoulder while locked, burn once the order is complete and flare as the pizza comes close.
-    val glowBase by animateFloatAsState(if (order.complete) 0.7f else 0.3f, ease(), label = "ovenGlow")
+    // Sold out, the fire is out.
+    val glowBase by animateFloatAsState(
+        when {
+            order.soldOut -> 0f
+            order.complete -> 0.7f
+            else -> 0.3f
+        },
+        ease(), label = "ovenGlow",
+    )
     val fire = rememberInfiniteTransition(label = "fire")
     val flicker by fire.animateFloat(0.9f, 1.1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "flicker")
     val shimmer by fire.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "shimmer")
@@ -231,7 +243,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
         )
 
         val label = when {
-            order.soldOut -> "Kein Teig mehr"
+            order.soldOut -> "Für heute leider keine Pizza mehr"
             !order.hasName -> "Erst Namen eingeben"
             !order.hasSauce -> "Erst Sauce wählen"
             else -> "Pizza in den Ofen schieben  ›››"

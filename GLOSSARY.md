@@ -17,7 +17,7 @@ Eine Pizza, deren Sauce und Beläge der Gast selbst wählt, im Gegensatz zu eine
 _Avoid_: Custom-Pizza
 
 **Teig-Bestand**:
-Wie viele vorbereitete Teiglinge noch übrig sind; jede Bestellung verbraucht einen, bei 0 ist ausverkauft. Die Anzahl für heute wird im Admin-Panel eingetragen.
+Wie viele vorbereitete Teiglinge noch übrig sind; jede Bestellung verbraucht einen, bei 0 ist ausverkauft. Die Anzahl für heute wird im Admin-Panel eingetragen; „Alle Bestellungen löschen“ füllt den Bestand wieder darauf auf.
 _Avoid_: Lager, Stock
 
 **Menü**:

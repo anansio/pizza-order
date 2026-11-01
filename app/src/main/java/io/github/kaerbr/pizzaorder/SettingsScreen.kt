@@ -302,7 +302,7 @@ private fun AllergenRow(name: String, contained: Set<Allergen>, onToggle: (Aller
 private fun Diet.next() = Diet.entries[(ordinal + 1) % Diet.entries.size]
 
 private enum class Confirm(val title: String, val text: String, val action: String) {
-    ClearOrders("Alle Bestellungen löschen?", "Das kann nicht rückgängig gemacht werden.", "Löschen"),
+    ClearOrders("Alle Bestellungen löschen?", "Auch der Teig-Zähler startet von vorn. Das kann nicht rückgängig gemacht werden.", "Löschen"),
     ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
 }
 

@@ -83,7 +83,7 @@ Im Admin-Panel kannst du:
 - eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
 - **QR-Links** für den Ausdruck pflegen
-- **alle Bestellungen löschen**, z. B. vor dem nächsten Abend
+- **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute)
 
 > [!NOTE]
 > Die Sperre soll nur neugierige Gäste fernhalten und ist keine echte Sicherheit.

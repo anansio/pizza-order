@@ -141,6 +141,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearAll() {
+        // Clearing starts a new evening, so the dough count starts over too. Nothing changes without a limit.
+        updateMenu { it.withDoughToday(it.dough?.today) }
         _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
         viewModelScope.launch { orderRepo.save(emptyList()) }
     }
