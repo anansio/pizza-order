@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/kaerbr/[secure]/compare/v1.4.1...v1.5.0) (2026-11-01)
+
+
+### Features
+
+* Bestellleiste als Ofenschieber zum Bestellen per Wischen ([5a421c0](https://github.com/kaerbr/[secure]/commit/5a421c000488c1c4076102c255fe8b1e43c22dea))
+
 ## [1.4.1](https://github.com/kaerbr/[secure]/compare/v1.4.0...v1.4.1) (2026-10-30)
 
 
