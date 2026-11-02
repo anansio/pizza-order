@@ -25,8 +25,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       # Runs the unit tests too (see app/build.gradle.kts). Preview runs R8, so a broken shrinker rule
-      # fails here and not only in the release step after merging.
-      - run: ./gradlew assembleDebug assemblePreview
+      # fails here and not only in the release step after merging. Lint fails the build on errors, not on warnings.
+      - run: ./gradlew assembleDebug assemblePreview lintDebug
 
       # Test APKs per PR: Checks → build → Summary → Artifacts. Both install next to the release app
       # (own app ids). Debug for trying out features, Preview to judge how smooth it runs on the tablet.
