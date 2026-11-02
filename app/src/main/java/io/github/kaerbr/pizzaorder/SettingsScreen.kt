@@ -479,8 +479,14 @@ private fun ScreenPinButton() {
         }
     }
     Text(
-        if (pinned) "Fixiert: Gäste können die App nicht verlassen." else "Hält die App im Vordergrund, damit Gäste sie nicht verlassen.",
+        if (pinned) "Fixiert: Home und Zurück sind gesperrt." else "Sperrt Home und Zurück, damit Gäste in der App bleiben.",
         style = MaterialTheme.typography.bodyLarge,
+    )
+    // Android itself tells guests how to unpin, so without this it only stops accidents.
+    Text(
+        "Wischen und Halten löst die Fixierung. Dagegen hilft die PIN-Abfrage beim Lösen in den Android-Einstellungen.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     OutlinedButton(
         onClick = { if (pinned) activity.stopLockTask() else activity.startLockTask() },
