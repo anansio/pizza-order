@@ -17,7 +17,7 @@ enum class Diet(val label: String) { VEGAN("Vegan"), VEGETARIAN("Vegetarisch"), 
 
 /** Allergens an ingredient can contain; [short] is the letter on chips and cards, explained in the legend. */
 @Serializable
-enum class Allergen(val label: String, val short: String) { LACTOSE("Laktose", "L"), NUTS("Nüsse", "N") }
+enum class Allergen(val label: String, val short: String) { LACTOSE("Laktose", "L"), NUTS("Nüsse", "N"), GLUTEN("Gluten", "G"), SOY("Soja", "S") }
 
 /** Today's prepared dough balls, one per pizza; [today] is the count set in Admin, shown as "Noch X von Y". */
 @Serializable

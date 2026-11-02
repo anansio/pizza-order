@@ -33,7 +33,7 @@ Eine Zutat, die für heute ausgegangen ist: Sie bleibt im Menü, aber Gäste kö
 _Avoid_: Ausverkauft (das sagt der Teig-Bestand)
 
 **Allergen**:
-Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose und Nüsse). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
+Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose, Nüsse, Gluten und Soja). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
 _Avoid_: Unverträglichkeit, Allergie
 
 **Standard-Menü**:

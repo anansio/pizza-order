@@ -336,19 +336,23 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AllergenRow(name: String, contained: Set<Allergen>, onToggle: (Allergen, Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Allergen.entries.forEach { allergen ->
-            val selected = allergen in contained
-            FilterChip(
-                selected = selected,
-                onClick = { onToggle(allergen, !selected) },
-                label = { Text(allergen.label) },
-                leadingIcon = if (selected) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
-                border = selectionChipBorder(selected),
-            )
+    // Name above its chips: next to a long one like "Pesto al basilico" they no longer fit on one line.
+    Column {
+        Text(name, style = MaterialTheme.typography.bodyLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Allergen.entries.forEach { allergen ->
+                val selected = allergen in contained
+                FilterChip(
+                    selected = selected,
+                    onClick = { onToggle(allergen, !selected) },
+                    label = { Text(allergen.label) },
+                    leadingIcon = if (selected) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
+                    border = selectionChipBorder(selected),
+                )
+            }
         }
     }
 }
