@@ -26,6 +26,14 @@ class AppStateTest {
         assertEquals(2, state.unprinted)
     }
 
+    @Test
+    fun topPizzasAreSortedByCountAndLimited() {
+        fun ordered(name: String) = order(0, printed = true).copy(pizza = pizza.copy(name = name))
+        val orders = listOf("Salami", "Margherita", "Salami", "Verde", "Margherita", "Salami", "Speciale").map(::ordered)
+        assertEquals(listOf("Salami" to 3, "Margherita" to 2, "Verde" to 1), orders.topPizzas())
+        assertEquals(emptyList<Pair<String, Int>>(), emptyList<Order>().topPizzas())
+    }
+
     // orders.json from before the flag: without the default every old order would turn up as a failed print.
     @Test
     fun oldOrdersCountAsPrinted() {

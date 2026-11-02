@@ -50,6 +50,10 @@ data class Pizza(
     }
 }
 
+/** The most ordered pizzas with their counts, most popular first; Eigenkreationen count as one. */
+fun List<Order>.topPizzas(limit: Int = 3) =
+    groupingBy { it.pizza.name }.eachCount().toList().sortedByDescending { it.second }.take(limit)
+
 @Serializable
 data class Order(
     val id: Long = System.currentTimeMillis(),

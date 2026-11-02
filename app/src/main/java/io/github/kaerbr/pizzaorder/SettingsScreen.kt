@@ -78,6 +78,7 @@ import io.github.kaerbr.pizzaorder.PrintStatus
 import io.github.kaerbr.pizzaorder.PrintStyle
 import io.github.kaerbr.pizzaorder.isWebLink
 import io.github.kaerbr.pizzaorder.Topping
+import io.github.kaerbr.pizzaorder.topPizzas
 import kotlinx.coroutines.delay
 
 private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
@@ -185,6 +186,16 @@ fun SettingsScreen(
                                 StatTile("Offen", open, Modifier.weight(1f))
                                 StatTile("Fertig", orders.size - open, Modifier.weight(1f))
                                 StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
+                            }
+                        }
+                        orders.topPizzas().takeIf { it.isNotEmpty() }?.let { top ->
+                            Section(title = "Beliebteste Pizzen") {
+                                top.forEach { (name, count) ->
+                                    Row {
+                                        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                        Text("${count}×", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
                             }
                         }
                         Section(title = "Teig") {

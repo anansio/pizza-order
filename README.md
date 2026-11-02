@@ -79,6 +79,7 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 
 Im Admin-Panel kannst du:
 
+- die **beliebtesten Pizzen** des Abends sehen
 - das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen) oder auf das Standard-Menü zurücksetzen
 - Zutaten für heute als **aus** markieren: Gäste können sie und Pizzen damit nicht mehr wählen, das Menü bleibt unverändert
 - eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt), und den Bestand um eins korrigieren
