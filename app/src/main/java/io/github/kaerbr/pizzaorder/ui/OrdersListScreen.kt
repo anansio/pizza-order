@@ -58,8 +58,8 @@ fun OrdersListScreen(
     orders: List<Order>,
     onToggleDone: (Order) -> Unit,
     onReprint: (Order) -> Unit,
-    prints: Map<Long, PrintStatus> = emptyMap(),
     modifier: Modifier = Modifier,
+    prints: Map<Long, PrintStatus> = emptyMap(),
 ) {
     // "Alle löschen" lives in the locked admin panel, not here where guests can reach it.
     val (done, pending) = orders.partition { it.isDone() }

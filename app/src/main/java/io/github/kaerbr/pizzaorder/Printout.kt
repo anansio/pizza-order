@@ -14,7 +14,7 @@ object Printout {
     const val PAPER_MM = 48f
 
     enum class Align { Left, Center, Right }
-    enum class Size { Normal, Big, Tall, Wide }
+    enum class Size { Normal, Big, Tall }
 
     data class Run(val text: String, val bold: Boolean = false, val size: Size = Size.Normal)
 
@@ -66,7 +66,7 @@ object Printout {
             when (m.groupValues[2]) {
                 "b" -> bold = !closing
                 "font" -> size = if (closing) Size.Normal else when (m.groupValues[3]) {
-                    "big" -> Size.Big; "tall" -> Size.Tall; "wide" -> Size.Wide; else -> Size.Normal
+                    "big" -> Size.Big; "tall" -> Size.Tall; else -> Size.Normal
                 }
             }
             start = m.range.last + 1

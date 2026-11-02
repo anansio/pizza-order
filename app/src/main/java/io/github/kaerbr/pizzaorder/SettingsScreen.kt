@@ -355,7 +355,7 @@ fun SettingsScreen(
                         TestPrintButton(onTestPrint, testPrintStatus)
                     }
 
-                    else -> Section(title = "QR-Links (Beleg & QR-Lacher)") {
+                    else -> Section(title = "QR-Links") {
                         if (menu.funLinks.isEmpty()) {
                             Text(
                                 "(keine – Ausdruck ohne QR-Code)",

@@ -29,7 +29,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - ⚠️ **Allergene** (Laktose, Nüsse, Gluten, Soja) werden je Zutat im Admin-Panel gepflegt, an Zutaten, Pizzen und in der Bestellliste angezeigt und auf dem Ausdruck hervorgehoben
 - 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name, Notiz für die Küche und der Anzahl Pizzen, die noch vor dem Gast dran sind
 - 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
-- 🎨 **Acht Ausdruck-Designs** vom sparsamen Dreizeiler bis zum Pizza-Bild mit Rahmen
+- 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🔒 **Admin-Panel** hinter einem Entsperrmuster, damit Gäste nicht im Menü herumspielen
 - ✈️ **Komplett offline**: kein Konto, kein Server, alle Daten bleiben auf dem Tablet
@@ -98,12 +98,6 @@ Im Admin-Panel kannst du:
 |---|---|
 | **Beleg** | Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen |
 | **Beleg Design** | Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen + Design |
-| **Kompakt** | Drei Zeilen, spart Papier |
-| **Fest** | Verspielt mit Rahmen und Pizza-Bild |
-| **Nero** | Pizza-Zettel: Zutaten einzeln, große Abholnummer |
-| **QR-Lacher** | Kurzer Ausdruck mit QR-Code zu einem Pizza-Witz zum Scannen |
-| **Bon** | Kopf mit Doppelrahmen, Punktlinien, Ankreuzfeld und QR-Code |
-| **Klassisch** | Der ursprüngliche Ausdruck mit Ofen-Bild |
 
 ## 🛠️ Selbst bauen
 

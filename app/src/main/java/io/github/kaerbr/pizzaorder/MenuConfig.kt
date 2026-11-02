@@ -151,7 +151,6 @@ data class MenuConfig(
         val allergens = (Sauce.entries.associate { it.sauce.name to it.allergens } + Topping.entries.associate { it.topping.name to it.allergens })
             .filterValues { it.isNotEmpty() }
 
-        // YouTube *search* links on purpose: they never go dead like single video IDs do.
         val funLinks = listOf(
             FunLink("Mathe beweist: fair teilen!",       "https://de.wikipedia.org/wiki/Pizza-Theorem"),
             FunLink("Der kleine Tisch im Karton",        "https://en.wikipedia.org/wiki/Pizza_saver"),

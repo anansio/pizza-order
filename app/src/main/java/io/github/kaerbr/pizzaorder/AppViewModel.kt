@@ -19,7 +19,6 @@ import kotlinx.serialization.builtins.ListSerializer
 data class AppState(
     val orders: List<Order> = emptyList(),
     val menu: MenuConfig = MenuConfig.Standard.menu,
-    val isLoaded: Boolean = false,
     /** The order just placed, shown as the full-screen confirmation until dismissed. */
     val confirmation: Confirmation? = null,
     /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
@@ -64,7 +63,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val orders = orderRepo.load()
             val menu = menuRepo.load()
-            _state.update { it.copy(orders = orders, menu = menu, isLoaded = true) }
+            _state.update { it.copy(orders = orders, menu = menu) }
         }
     }
 

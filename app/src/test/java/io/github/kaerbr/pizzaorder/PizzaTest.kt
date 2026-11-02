@@ -39,9 +39,4 @@ class PizzaTest {
         // Switching the last one off drops the entry instead of keeping an empty set in menu.json.
         assertEquals(mapOf("Pinienkerne" to setOf(Allergen.NUTS)), menu.withAllergen("Käse", Allergen.LACTOSE, false).allergens)
     }
-
-    @Test
-    fun dotRowFillsExactlyOneLine() {
-        assertEquals(32, dotRow("Gast", "Laura").removePrefix("[L]").replace("<b>", "").replace("</b>", "").length)
-    }
 }

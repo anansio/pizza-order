@@ -53,10 +53,10 @@ _Avoid_: Pending, erledigt
 
 **Ausdruck**:
 Das Stück Papier, das der Thermodrucker zu einer Bestellung ausgibt.
-_Avoid_: Bon, Beleg, Zettel (das sind Namen von Ausdruck-Designs, keine Oberbegriffe)
+_Avoid_: Bon, Beleg, Zettel (Beleg ist der Name eines Ausdruck-Designs, kein Oberbegriff)
 
 **Ausdruck-Design**:
-Das Aussehen aller Ausdrucke, z. B. „Beleg“, „Bon“ oder „Kompakt“; gilt für alle Bestellungen gleichzeitig.
+Das Aussehen aller Ausdrucke, „Beleg“ oder „Beleg Design“; gilt für alle Bestellungen gleichzeitig.
 _Avoid_: Druckstil, Vorlage
 
 **QR-Link**:

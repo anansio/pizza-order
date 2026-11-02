@@ -221,7 +221,7 @@ private fun PaperLine(line: Printout.Line, fontSize: TextUnit, paperWidth: Dp) {
                 is Printout.QrSegment -> FakeQr(seg.url, paperWidth * (seg.sizeMm / Printout.PAPER_MM), Modifier.align(align).padding(vertical = 6.dp))
                 is Printout.TextSegment -> {
                     // Line height follows the largest run, so "big" numbers don't overlap their neighbours.
-                    val tallest = if (seg.runs.any { it.size != Printout.Size.Normal && it.size != Printout.Size.Wide }) fontSize * 2 else fontSize
+                    val tallest = if (seg.runs.any { it.size != Printout.Size.Normal }) fontSize * 2 else fontSize
                     BasicText(
                         buildAnnotatedString {
                             seg.runs.forEach { run ->
@@ -245,15 +245,11 @@ private fun PaperLine(line: Printout.Line, fontSize: TextUnit, paperWidth: Dp) {
     }
 }
 
-// ESC/POS sizes: big = double width and height, tall = double height only, wide = double width only.
+// ESC/POS sizes: big = double width and height, tall = double height only.
 private fun Printout.Run.style(fontSize: TextUnit) = SpanStyle(
     fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-    fontSize = if (size == Printout.Size.Big || size == Printout.Size.Tall) fontSize * 2 else fontSize,
-    textGeometricTransform = when (size) {
-        Printout.Size.Tall -> TextGeometricTransform(scaleX = 0.5f)
-        Printout.Size.Wide -> TextGeometricTransform(scaleX = 2f)
-        else -> null
-    },
+    fontSize = if (size == Printout.Size.Normal) fontSize else fontSize * 2,
+    textGeometricTransform = if (size == Printout.Size.Tall) TextGeometricTransform(scaleX = 0.5f) else null,
 )
 
 /**
