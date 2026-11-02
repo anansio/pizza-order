@@ -25,6 +25,9 @@ data class AppState(
 ) {
     // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
     val nextNumber get() = (orders.maxOfOrNull { it.number } ?: 0) + 1
+
+    /** Open orders the kitchen has no paper for; the printout is its only signal. One still printing doesn't count yet. */
+    val unprinted get() = orders.count { !it.isDone() && !it.printed && prints[it.id] != PrintStatus.Printing }
 }
 
 /** [printout] is the exact markup sent to the printer, so the on-screen slip matches the paper one. */
@@ -73,10 +76,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // Fresh random QR link on every print, reprint and test print.
     private fun printout(order: Order) = _state.value.printStyle.format(order, _state.value.menu.funLinks.randomOrNull())
 
+    private fun markPrinted(id: Long) {
+        // Reprints of printed orders and the test print have nothing to record.
+        if (_state.value.orders.none { it.id == id && !it.printed }) return
+        _state.update { s -> s.copy(orders = s.orders.map { if (it.id == id) it.copy(printed = true) else it }) }
+        viewModelScope.launch { orderRepo.save(_state.value.orders) }
+    }
+
     private fun runPrint(markup: String, id: Long) = viewModelScope.launch {
         setPrint(id, PrintStatus.Printing)
         printer.print(markup)
             .onSuccess {
+                markPrinted(id)
                 setPrint(id, PrintStatus.Printed)
                 // "Gedruckt" is a brief tick on the button, not a lasting state; failures stay until retried.
                 delay(3_000)
@@ -114,7 +125,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         updateMenu { menuAfter }
 
         val number = _state.value.nextNumber
-        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza))
+        val order = Order(number = number, customer = cleanCustomer, pizza = pizza, note = note.trim(), diet = _state.value.menu.dietOf(pizza), allergens = _state.value.menu.allergensOf(pizza), printed = false)
 
         val markup = printout(order)
         _state.update { it.copy(

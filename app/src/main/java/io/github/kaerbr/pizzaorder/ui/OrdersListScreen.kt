@@ -65,6 +65,8 @@ fun OrdersListScreen(
     }
     val sortedPending = pending.sortedBy { it.id }
     val sortedDone = done.sortedByDescending { it.completedAt }
+    // After a restart only the flag is left: the reason lived in memory.
+    val statusOf = { order: Order -> prints[order.id] ?: PrintStatus.Failed("Nicht gedruckt.").takeUnless { order.printed } }
 
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
@@ -77,13 +79,13 @@ fun OrdersListScreen(
 
             if (sortedPending.isNotEmpty()) item { SectionRibbon("Offen (${sortedPending.size})", Modifier.animateItem()) }
             items(sortedPending, key = { it.id }) { order ->
-                OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, prints[order.id], Modifier.animateItem())
+                OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
             }
 
             if (sortedDone.isNotEmpty()) {
                 item { SectionRibbon("Fertig (${sortedDone.size})", Modifier.animateItem()) }
                 items(sortedDone, key = { it.id }) { order ->
-                    OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, prints[order.id], Modifier.animateItem())
+                    OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
                 }
             }
         }
@@ -126,6 +128,10 @@ private fun OrderCard(
                 Text(order.pizza.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (order.note.isNotBlank()) {
                     Text("„${order.note}“", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                // The reason is what says whether to fetch paper or switch the printer on.
+                if (printStatus is PrintStatus.Failed) {
+                    Text(printStatus.reason, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
                 }
             }
             // Time pinned top-right, reprint bottom-right; IntrinsicSize.Min on the Row lets this column span the card.

@@ -28,7 +28,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 🌱 **Vegan / Vegetarisch** wird aus den Zutaten erkannt und auf dem Ausdruck hervorgehoben
 - ⚠️ **Allergene** (Laktose, Nüsse) werden je Zutat im Admin-Panel gepflegt, an Zutaten, Pizzen und in der Bestellliste angezeigt und auf dem Ausdruck hervorgehoben
 - 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name und Notiz für die Küche
-- 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken
+- 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Acht Ausdruck-Designs** vom sparsamen Dreizeiler bis zum Pizza-Bild mit Rahmen
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🔒 **Admin-Panel** hinter einem Entsperrmuster, damit Gäste nicht im Menü herumspielen

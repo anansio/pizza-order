@@ -62,6 +62,9 @@ data class Order(
     val diet: Diet = Diet.NONE,
     // Same snapshot idea; sorted by enum order so it always reads "Laktose, Nüsse".
     val allergens: Set<Allergen> = emptySet(),
+    // False until the printer took it, on disk so a lost printout survives an app restart. The default is
+    // for orders.json files from before this field: those orders are long past.
+    val printed: Boolean = true,
 ) {
     fun isDone() = completedAt != null
     val formattedTime: String get() = SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(id))

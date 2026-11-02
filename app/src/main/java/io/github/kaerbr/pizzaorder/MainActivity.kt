@@ -45,6 +45,7 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocalPizza
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.AlertDialog
@@ -241,6 +242,7 @@ private fun MainScaffold(
             QuickMenu(
                 currentPage = pagerState.currentPage,
                 pendingCount = pendingCount,
+                unprinted = state.unprinted,
                 onSelectPage = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
                 onOpenAppearance = onOpenAppearance,
                 onOpenSettings = onOpenSettings,
@@ -261,11 +263,13 @@ private val pageIcons = listOf(Icons.Default.LocalPizza, Icons.AutoMirrored.Fill
  * FAB-menu look, but top-right and opening downwards (Material's FloatingActionButtonMenu only opens
  * upwards, which would put it next to the order button). Collapsed it's a small neutral button with the
  * current page's icon and the pending count; any choice, a tap elsewhere or a few idle seconds close it.
+ * Orders the printer never got turn it into a red warning, visible from both pages: the kitchen knows nothing of them.
  */
 @Composable
 private fun BoxScope.QuickMenu(
     currentPage: Int,
     pendingCount: Int,
+    unprinted: Int,
     onSelectPage: (Int) -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -273,6 +277,7 @@ private fun BoxScope.QuickMenu(
     var open by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(open) { if (open) { delay(6_000); open = false } }
     val colors = MaterialTheme.colorScheme
+    val warn = unprinted > 0 && !open
 
     // Tap anywhere else closes the menu; it swallows that tap so nothing behind gets hit by accident.
     if (open) Box(Modifier.matchParentSize().clickable(interactionSource = null, indication = null) { open = false })
@@ -288,15 +293,22 @@ private fun BoxScope.QuickMenu(
                 onClick = { open = !open },
                 shape = CircleShape,
                 color = if (open) colors.primaryContainer else colors.surface,
-                contentColor = if (open) colors.primary else colors.onSurfaceVariant,
-                border = BorderStroke(1.dp, colors.outline),
+                contentColor = when {
+                    open -> colors.primary
+                    warn -> colors.error
+                    else -> colors.onSurfaceVariant
+                },
+                border = BorderStroke(1.dp, if (warn) colors.error else colors.outline),
                 shadowElevation = 2.dp,
                 modifier = Modifier.size(QuickMenuSize),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Crossfade(open, label = "quickMenu") { isOpen ->
-                        if (isOpen) Icon(Icons.Default.Close, contentDescription = "Menü schließen", Modifier.size(20.dp))
-                        else Icon(pageIcons[currentPage], contentDescription = "Menü", Modifier.size(20.dp))
+                        when {
+                            isOpen -> Icon(Icons.Default.Close, contentDescription = "Menü schließen", Modifier.size(20.dp))
+                            unprinted > 0 -> Icon(Icons.Default.Warning, contentDescription = "Menü, $unprinted nicht gedruckt", Modifier.size(20.dp))
+                            else -> Icon(pageIcons[currentPage], contentDescription = "Menü", Modifier.size(20.dp))
+                        }
                     }
                 }
             }
@@ -307,7 +319,8 @@ private fun BoxScope.QuickMenu(
             exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
         ) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Bestellen", "Bestellungen ($pendingCount)").forEachIndexed { page, label ->
+                val orders = "Bestellungen ($pendingCount)" + if (unprinted > 0) " · $unprinted nicht gedruckt" else ""
+                listOf("Bestellen", orders).forEachIndexed { page, label ->
                     QuickMenuItem(pageIcons[page], label, selected = currentPage == page) { open = false; onSelectPage(page) }
                 }
                 QuickMenuItem(Icons.Outlined.LightMode, "Aussehen") { open = false; onOpenAppearance() }
