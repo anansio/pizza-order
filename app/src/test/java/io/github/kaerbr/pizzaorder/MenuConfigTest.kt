@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MenuConfigTest {
@@ -129,6 +130,13 @@ class MenuConfigTest {
         val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withAllergen("Käse", Allergen.SOY, true)
         val loaded = MenuFile.decode(MenuFile.encode(tonight))
         assertEquals(tonight.copy(dough = null, soldOut = emptySet()), loaded)
+    }
+
+    // Regression, found on the emulator: values equal to the defaults were left out of the file.
+    @Test
+    fun menuFileHoldsEverythingEvenWhenItEqualsTheDefaults() {
+        val file = MenuFile.encode(menu)
+        for (key in listOf("diets", "allergens", "funLinks")) assertTrue(key, "\"$key\"" in file)
     }
 
     // A wrong file must not wipe the menu: valid JSON alone would decode to an empty one.

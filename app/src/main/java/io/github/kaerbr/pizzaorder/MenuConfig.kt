@@ -8,6 +8,9 @@ object MenuFile {
     private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
+        // Without it tags and links equal to Standard stay out of the file, and a later app version with other
+        // defaults would load those instead of what was saved.
+        encodeDefaults = true
     }
 
     // Dough and what ran out belong to tonight, not to the menu.
