@@ -759,6 +759,9 @@ private fun PresetDialog(
     var name by remember { mutableStateOf(editing?.name.orEmpty()) }
     var sauce by remember { mutableStateOf(editing?.sauce ?: menu.sauces.firstOrNull() ?: Sauce("Tomate")) }
     var toppings by remember { mutableStateOf(editing?.toppings?.toSet().orEmpty()) }
+    // Picking and deleting a preset go by name, so a second one of the same name could never be picked.
+    val taken = (menu.presets.map { it.name } + CUSTOM_NAME).filter { it != editing?.name }.map { it.lowercase() }
+    val nameTaken = name.trim().lowercase() in taken
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -775,6 +778,8 @@ private fun PresetDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     placeholder = { Text("z.B. Mafiosa") },
+                    isError = nameTaken,
+                    supportingText = if (nameTaken) { { Text("Diesen Namen gibt es schon") } } else null,
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -832,7 +837,7 @@ private fun PresetDialog(
         confirmButton = {
             TextButton(
                 onClick = { onSave(Pizza(name.trim(), sauce, Pizza.toppingsOf(toppings.map { it.name }))) },
-                enabled = name.isNotBlank(),
+                enabled = name.isNotBlank() && !nameTaken,
             ) { Text(if (editing == null) "Hinzufügen" else "Speichern") }
         },
         dismissButton = {

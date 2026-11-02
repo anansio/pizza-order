@@ -115,6 +115,15 @@ class MenuConfigTest {
         assertEquals(listOf("Speciale", "Margherita", "Salami", "Pizza Verde", "Napoli"), menu.withPreset(napoli).presets.map { it.name })
     }
 
+    // Regression: a second "Margherita" could be added; it was never pickable, and deleting took both.
+    @Test
+    fun aPresetNameExistsOnlyOnce() {
+        val other = Pizza("Margherita", Sauce("Tomate"), Pizza.toppingsOf(listOf("Oliven")))
+        val menuAfter = menu.withPreset(other)
+        assertEquals(menu.presets.map { it.name }, menuAfter.presets.map { it.name })
+        assertEquals(other, menuAfter.presets.first { it.name == "Margherita" })
+    }
+
     @Test
     fun menuFileRoundTripsTheMenuButNotTonight() {
         val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withAllergen("Käse", Allergen.SOY, true)
