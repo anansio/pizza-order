@@ -180,13 +180,15 @@ fun OrderScreen(
                 }) {
                     // Eigenkreation only shows a diet while it's the one being built.
                     val building = pizzaName == CUSTOM_NAME
-                    val tiles = menu.presets.map { Tile(it.name, it.description, menu.dietOf(it), menu.allergensOf(it)) } +
-                        Tile(CUSTOM_NAME, "Sauce und Belag frei wählen", if (building) diet else Diet.NONE, if (building) allergens else emptySet())
+                    val tiles = menu.presets.map { p ->
+                        val missing = menu.soldOutOf(p)
+                        Tile(p.name, if (missing.isEmpty()) p.description else "Heute aus: ${missing.joinToString()}", menu.dietOf(p), menu.allergensOf(p), missing.isEmpty())
+                    } + Tile(CUSTOM_NAME, "Sauce und Belag frei wählen", if (building) diet else Diet.NONE, if (building) allergens else emptySet(), true)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         tiles.chunked(3).forEach { row ->
                             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { (name, desc, tileDiet, tileAllergens) ->
-                                    PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, !soldOut, Modifier.weight(1f).fillMaxHeight()) {
+                                row.forEach { (name, desc, tileDiet, tileAllergens, available) ->
+                                    PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, !soldOut && available, Modifier.weight(1f).fillMaxHeight().alpha(if (available) 1f else 0.45f)) {
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                                         } ?: run { sauceName = ""; toppingNames = emptyList(); customPicked = true } // Eigenkreation: start empty
@@ -201,7 +203,7 @@ fun OrderScreen(
                 Section("03", "Sauce") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.sauces.forEach { s ->
-                            Pill(s.name, s.name == sauceName, !soldOut, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name)) { sauceName = s.name }
+                            Pill(s.name, s.name == sauceName, !soldOut, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name), out = s.name in menu.soldOut) { sauceName = s.name }
                         }
                     }
                 }
@@ -210,7 +212,7 @@ fun OrderScreen(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
-                            Pill(t.name, selected, !soldOut, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name)) {
+                            Pill(t.name, selected, !soldOut, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name), out = t.name in menu.soldOut) {
                                 toppingNames = if (selected) toppingNames - t.name else toppingNames + t.name
                             }
                         }
@@ -357,7 +359,7 @@ private fun DietLegend(menu: MenuConfig, modifier: Modifier = Modifier) {
     }
 }
 
-private data class Tile(val name: String, val description: String, val diet: Diet, val allergens: Set<Allergen>)
+private data class Tile(val name: String, val description: String, val diet: Diet, val allergens: Set<Allergen>, val available: Boolean)
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
@@ -514,12 +516,12 @@ private fun PizzaCard(name: String, description: String, diet: Diet, allergens: 
 }
 
 @Composable
-private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, allergens: Set<Allergen> = emptySet(), onClick: () -> Unit) {
+private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: ImageVector? = null, diet: Diet = Diet.NONE, allergens: Set<Allergen> = emptySet(), out: Boolean = false, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        enabled = enabled,
-        label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
+        enabled = enabled && !out,
+        label = { Text(if (out) "$label · aus" else label, style = MaterialTheme.typography.bodyMedium) },
         leadingIcon = icon?.let { { Icon(it, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary) } },
         trailingIcon = if (diet.icon == null && allergens.isEmpty()) null else { {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -535,6 +537,6 @@ private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: Image
             disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
         border = selectionChipBorder(selected),
-        modifier = Modifier.heightIn(min = ChipHeight),
+        modifier = Modifier.heightIn(min = ChipHeight).alpha(if (out) 0.45f else 1f),
     )
 }

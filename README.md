@@ -80,11 +80,12 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 Im Admin-Panel kannst du:
 
 - das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen) oder auf das Standard-Menü zurücksetzen
+- Zutaten für heute als **aus** markieren: Gäste können sie und Pizzen damit nicht mehr wählen, das Menü bleibt unverändert
 - eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt), und den Bestand um eins korrigieren
 - offene **Bestellungen stornieren**; der Teigling kommt dabei zurück in den Bestand
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
 - **QR-Links** für den Ausdruck pflegen
-- **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute)
+- **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute, und „aus“ markierte Zutaten sind wieder da)
 
 > [!NOTE]
 > Die Sperre soll nur neugierige Gäste fernhalten und ist keine echte Sicherheit.

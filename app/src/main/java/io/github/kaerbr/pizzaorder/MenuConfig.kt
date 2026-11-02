@@ -17,6 +17,8 @@ data class MenuConfig(
     val allergens: Map<String, Set<Allergen>> = Standard.allergens,
     // In menu.json, so every order's decrement is on disk right away. null = no limit (nothing counted or shown).
     val dough: DoughStock? = null,
+    // Run out tonight, by name like [diets]. Not the same as deleting: that strips an ingredient from every preset for good.
+    val soldOut: Set<String> = emptySet(),
 ) {
     // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on Standard.menu
     // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to Standard.menu).
@@ -43,7 +45,8 @@ data class MenuConfig(
             sauces = nextSauces,
             presets = presets.mapTo(LinkedHashSet()) {
                 if (it.sauce == sauce) it.copy(sauce = fallback) else it
-            }
+            },
+            soldOut = soldOut - sauce.name,
         )
     }
 
@@ -55,7 +58,8 @@ data class MenuConfig(
         toppings = LinkedHashSet(toppings).apply { remove(topping) },
         presets = presets.mapTo(LinkedHashSet()) {
             it.copy(toppings = LinkedHashSet(it.toppings).apply { remove(topping) })
-        }
+        },
+        soldOut = soldOut - topping.name,
     )
 
     fun withPreset(pizza: Pizza) = copy(
@@ -101,6 +105,11 @@ data class MenuConfig(
         val next = (d.available + delta).coerceAtLeast(0)
         d.copy(available = next, today = maxOf(d.today, next))
     })
+
+    fun withSoldOut(name: String, out: Boolean) = copy(soldOut = if (out) soldOut + name else soldOut - name)
+
+    /** The ingredients of [pizza] that have run out; a pizza with any of them can't be ordered tonight. */
+    fun soldOutOf(pizza: Pizza) = ingredients(pizza).filter { it in soldOut }
 
     /** As strict as its least strict ingredient; a bare crust counts as vegan. */
     fun dietOf(pizza: Pizza) = ingredients(pizza).maxOfOrNull { dietOf(it) } ?: Diet.VEGAN

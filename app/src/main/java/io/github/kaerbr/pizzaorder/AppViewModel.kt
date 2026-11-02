@@ -160,8 +160,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearAll() {
-        // Clearing starts a new evening, so the dough count starts over too. Nothing changes without a limit.
-        updateMenu { it.withDoughToday(it.dough?.today) }
+        // Clearing starts a new evening, so the dough count and what ran out start over too.
+        updateMenu { it.withDoughToday(it.dough?.today).copy(soldOut = emptySet()) }
         _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
         viewModelScope.launch { orderRepo.save(emptyList()) }
     }
@@ -182,6 +182,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeTopping(topping: Topping) = updateMenu { it.withoutTopping(topping) }
+
+    fun setSoldOut(name: String, out: Boolean) = updateMenu { it.withSoldOut(name, out) }
 
     fun setDiet(name: String, diet: Diet) = updateMenu { it.withDiet(name, diet) }
 

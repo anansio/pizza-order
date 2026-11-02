@@ -83,6 +83,18 @@ class MenuConfigTest {
     }
 
     @Test
+    fun soldOutIngredientBlocksItsPizzasButStaysOnTheMenu() {
+        val out = menu.withSoldOut("Rucola", true)
+        fun pizza(name: String) = out.presets.first { it.name == name }
+        assertEquals(listOf("Rucola"), out.soldOutOf(pizza("Speciale")))
+        assertEquals(emptyList<String>(), out.soldOutOf(pizza("Margherita")))
+        assertEquals(menu.presets, out.presets)
+        assertEquals(emptySet<String>(), out.withSoldOut("Rucola", false).soldOut)
+        // Gone from the menu, nothing is left to be out of: a later "Rucola" starts available.
+        assertEquals(emptySet<String>(), out.withoutTopping(Topping("Rucola")).soldOut)
+    }
+
+    @Test
     fun lowAndSoldOutFlags() {
         assertEquals(listOf(false, true, true, false), listOf(4, 3, 1, 0).map { DoughStock(it).isLow })
         assertEquals(true, DoughStock(0).isSoldOut)

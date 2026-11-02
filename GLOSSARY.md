@@ -28,6 +28,10 @@ _Avoid_: Löschen (das meint „Alle Bestellungen löschen“)
 Die Saucen, Beläge und vordefinierten Pizzen, aus denen Gäste wählen können.
 _Avoid_: Speisekarte, Konfiguration
 
+**Heute aus**:
+Eine Zutat, die für heute ausgegangen ist: Sie bleibt im Menü, aber Gäste können sie und vordefinierte Pizzen damit nicht wählen. „Alle Bestellungen löschen“ hebt das auf.
+_Avoid_: Ausverkauft (das sagt der Teig-Bestand)
+
 **Allergen**:
 Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose und Nüsse). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
 _Avoid_: Unverträglichkeit, Allergie

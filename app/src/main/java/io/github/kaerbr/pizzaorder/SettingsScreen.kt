@@ -85,6 +85,7 @@ fun SettingsScreen(
     onRemoveSauce: (Sauce) -> Unit,
     onAddTopping: (String) -> Unit,
     onRemoveTopping: (Topping) -> Unit,
+    onSetSoldOut: (name: String, out: Boolean) -> Unit,
     onSetDiet: (name: String, Diet) -> Unit,
     onSetAllergen: (name: String, Allergen, contained: Boolean) -> Unit,
     onAddPreset: (Pizza) -> Unit,
@@ -106,6 +107,19 @@ fun SettingsScreen(
     var showAddPreset by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var cancelling by remember { mutableStateOf<Order?>(null) }
+    var removing by remember { mutableStateOf<Removal?>(null) }
+
+    removing?.let { r ->
+        val affected = menu.presets.filter { p -> p.sauce.name == r.name || p.toppings.any { it.name == r.name } }
+        DangerDialog(
+            title = "${r.name} löschen?",
+            text = (if (affected.isEmpty()) "" else "Das ändert auch: ${affected.joinToString { it.name }}. ") +
+                "Geht es nur um heute, nimm stattdessen „Heute aus“.",
+            action = "Löschen",
+            onConfirm = r.remove,
+            onDismiss = { removing = null },
+        )
+    }
 
     cancelling?.let { order ->
         DangerDialog(
@@ -188,18 +202,37 @@ fun SettingsScreen(
 
                     1 -> {
                         val cycleDiet = { name: String -> onSetDiet(name, menu.dietOf(name).next()) }
+                        Section(title = "Heute aus") {
+                            Text(
+                                "Antippen, wenn etwas ausgeht: Gäste können es dann nicht mehr wählen, auch keine Pizza damit. Bleibt im Menü und ist beim Löschen aller Bestellungen wieder da.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                (menu.sauces.map { it.name } + menu.toppings.map { it.name }).distinct().forEach { name ->
+                                    val out = name in menu.soldOut
+                                    FilterChip(
+                                        selected = out,
+                                        onClick = { onSetSoldOut(name, !out) },
+                                        label = { Text(name) },
+                                        leadingIcon = if (out) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             "Tippen auf eine Zutat wechselt: Vegan → Vegetarisch → Nichts davon. ✕ löscht sie.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Section(title = "Saucen") {
-                            ChipList(items = menu.sauces.toList(), onRemove = onRemoveSauce.takeIf { menu.sauces.size > 1 }, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
+                            val removeSauce = { s: Sauce -> removing = Removal(s.name) { onRemoveSauce(s) } }
+                            ChipList(items = menu.sauces.toList(), onRemove = removeSauce.takeIf { menu.sauces.size > 1 }, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
                             AddRow(placeholder = "Neue Sauce", onAdd = onAddSauce)
                         }
 
                         Section(title = "Beläge") {
-                            ChipList(items = menu.toppings.toList(), onRemove = onRemoveTopping, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
+                            ChipList(items = menu.toppings.toList(), onRemove = { t -> removing = Removal(t.name) { onRemoveTopping(t) } }, labelProvider = { it.name }, dietOf = { menu.dietOf(it.name) }, onCycleDiet = { cycleDiet(it.name) })
                             AddRow(placeholder = "Neuer Belag", onAdd = onAddTopping)
                         }
 
@@ -314,9 +347,12 @@ private fun AllergenRow(name: String, contained: Set<Allergen>, onToggle: (Aller
 private fun Diet.next() = Diet.entries[(ordinal + 1) % Diet.entries.size]
 
 private enum class Confirm(val title: String, val text: String, val action: String) {
-    ClearOrders("Alle Bestellungen löschen?", "Auch der Teig-Zähler startet von vorn. Das kann nicht rückgängig gemacht werden.", "Löschen"),
+    ClearOrders("Alle Bestellungen löschen?", "Auch Teig-Zähler und „Heute aus“ starten von vorn. Das kann nicht rückgängig gemacht werden.", "Löschen"),
     ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
 }
+
+/** An ingredient waiting for its delete confirmation. */
+private class Removal(val name: String, val remove: () -> Unit)
 
 @Composable
 private fun StatTile(label: String, value: Int, modifier: Modifier) {
@@ -498,7 +534,7 @@ private fun <T> ChipList(items: List<T>, onRemove: ((T) -> Unit)?, labelProvider
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Löschen",
-                        modifier = Modifier.clip(CircleShape).clickable { remove(item) }.padding(2.dp).size(16.dp),
+                        modifier = Modifier.clip(CircleShape).clickable { remove(item) }.padding(4.dp).size(18.dp),
                     )
                 } },
                 colors = AssistChipDefaults.assistChipColors(
