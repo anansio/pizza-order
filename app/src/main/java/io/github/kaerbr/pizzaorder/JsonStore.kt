@@ -1,6 +1,7 @@
 package io.github.kaerbr.pizzaorder
 
 import android.content.Context
+import android.util.Log
 import androidx.core.util.AtomicFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -10,6 +11,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.IOException
 
 /**
  * Generic JSON persistence for filesDir.
@@ -42,18 +44,27 @@ class JsonStore<T>(
             return@withContext defaultValue
         }
         runCatching { json.decodeFromString(serializer, text) }
-            .getOrElse { defaultValue }
+            .getOrElse {
+                // The next save overwrites the file, so set it aside: it may be all that's left of tonight's orders.
+                runCatching { file.baseFile.copyTo(File("${file.baseFile.path}.broken"), overwrite = true) }
+                defaultValue
+            }
     }
 
     suspend fun save(data: T) = mutex.withLock {
         withContext(Dispatchers.IO) {
-            val out = file.startWrite()
+            // A full disk mustn't take the app down mid-party: the state stays in memory and the next save tries again.
             try {
-                out.write(json.encodeToString(serializer, data).toByteArray())
-                file.finishWrite(out)
-            } catch (e: Exception) {
-                file.failWrite(out)
-                throw e
+                val out = file.startWrite()
+                try {
+                    out.write(json.encodeToString(serializer, data).toByteArray())
+                    file.finishWrite(out)
+                } catch (e: Exception) {
+                    file.failWrite(out)
+                    throw e
+                }
+            } catch (e: IOException) {
+                Log.e("JsonStore", "Speichern fehlgeschlagen", e)
             }
         }
     }
