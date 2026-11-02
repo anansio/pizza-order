@@ -9,14 +9,14 @@ package io.github.kaerbr.pizzaorder
 enum class PrintStyle(val label: String, val description: String) {
 
     Receipt("Beleg", "Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]<b>P I Z Z A   P A R T Y</b>
             |[C]forno a corrente
             |[C]================================
             |[L]BESTELLUNG[R]<font size='big'>${order.formattedNumber}</font>
             |[L]
             |[L]Gast[R]<b>${order.customer}</b>
-            |[L]Zeit[R]${order.formattedTime}
+            |[L]Zeit[R]${order.formattedTime}${aheadLine(ahead)}
             |[C]- - - - - - - - - - - - - - - -
             |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>${dietLine(order)}${allergenLine(order)}
             |[L]   ${order.pizza.sauce.name}
@@ -32,7 +32,7 @@ enum class PrintStyle(val label: String, val description: String) {
     },
 
     ReceiptDesign("Beleg Design", "Wie ein Kassenbon: Nummer, Gast, Zeit, Positionen + Design") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]*  .  *  .  *  .  *  .  *  .  *
             |[C]<b>P I Z Z A   P A R T Y</b>
             |[C]*  .  *  .  *  .  *  .  *  .  *
@@ -40,7 +40,7 @@ enum class PrintStyle(val label: String, val description: String) {
             |[L]BESTELLUNG[R]<font size='big'>${order.formattedNumber}</font>
             |[L]
             |[L]Gast[R]<b>${order.customer}</b>
-            |[L]Zeit[R]${order.formattedTime}
+            |[L]Zeit[R]${order.formattedTime}${aheadLine(ahead)}
             |[C]- - - - - - - - - - - - - - - -
             |[L]<font size='tall'><b>1x ${order.pizza.name}</b></font>${dietLine(order)}${allergenLine(order)}
             |[L]   ${order.pizza.sauce.name}
@@ -56,7 +56,7 @@ enum class PrintStyle(val label: String, val description: String) {
     };
 
     /*Kitchen("Küche", "Riesige Nummer und Pizza, lesbar vom Ofen aus") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]<font size='big'>${order.formattedNumber}</font>
             |[C]<font size='wide'><b>${order.customer.uppercase()}</b></font>
             |[C]${order.formattedTime}
@@ -72,7 +72,7 @@ enum class PrintStyle(val label: String, val description: String) {
     },
 
     Compact("Kompakt", "Drei Zeilen, spart Papier") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[L]<b>${order.formattedNumber} ${order.customer}</b>[R]${order.formattedTime}
             |[L]<b>${order.pizza.name}</b>: ${(listOf(order.pizza.sauce.name) + order.pizza.toppings.map { it.name }).joinToString(", ")}
             |${order.note.takeIf(String::isNotBlank)?.let { "[L]Notiz: $it" } ?: ""}
@@ -82,7 +82,7 @@ enum class PrintStyle(val label: String, val description: String) {
     },
 
     Party("Fest", "Verspielt mit Rahmen und Pizza-Bild") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]*  .  *  .  *  .  *  .  *  .  *
             |[C]<b>~ PIZZA PARTY ~</b>
             |[C]*  .  *  .  *  .  *  .  *  .  *
@@ -112,7 +112,7 @@ enum class PrintStyle(val label: String, val description: String) {
     // design/receipt.html — the "one-pizza slip": logo, who it's for, the pizza
     // big, ingredients one per line, then a loud claim number.
     Nero("Nero", "Pizza-Zettel: Zutaten einzeln, große Abholnummer") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]  .-~~-.
             |[C] / o  o \
             |[C]|        |
@@ -146,7 +146,7 @@ enum class PrintStyle(val label: String, val description: String) {
 
     // Compact receipt + the QR code to something pizza-silly.
     Qr("QR-Lacher", "Kurzer Ausdruck mit QR-Code zu einem Pizza-Witz zum Scannen") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]<b>P I Z Z A   P A R T Y</b>
             |[C]================================
             |[L]<b>${order.formattedNumber} ${order.customer}</b>[R]${order.formattedTime}
@@ -165,7 +165,7 @@ enum class PrintStyle(val label: String, val description: String) {
     // design/bon.html — inverted header bar, dotted label/value rows, check box.
     // ponytail: no inverted bg-black bar, cheap thermal heads print large black areas only grey.
     Bon("Bon", "Kopf mit Doppelrahmen, Punktlinien, Ankreuzfeld und QR-Code") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]================================
             |[C]<font size='wide'><b>(o) PIZZA PARTY</b></font>
             |[C]HAUSGEMACHT - FÜR DICH
@@ -196,7 +196,7 @@ enum class PrintStyle(val label: String, val description: String) {
     },
 
     Classic("Klassisch", "Der ursprüngliche Ausdruck mit Ofen-Bild") {
-        override fun format(order: Order, link: FunLink?) = """
+        override fun format(order: Order, link: FunLink?, ahead: Int) = """
             |[C]<font size='big'>${order.formattedNumber}</font>
             |[C]================================
             |[C]ORDINE PER: <b>${order.customer}</b>
@@ -218,7 +218,8 @@ enum class PrintStyle(val label: String, val description: String) {
         """.trimMargin()
     };*/
 
-    abstract fun format(order: Order, link: FunLink?): String
+    /** @param ahead open orders before this one, so the guest knows how long it'll take. */
+    abstract fun format(order: Order, link: FunLink?, ahead: Int = 0): String
 }
 
 // "Gast ........... Laura" filled to the 32-char line; overlong values just wrap.
@@ -230,6 +231,10 @@ private fun qrBlock(link: FunLink?) = link?.let {
     "[C]- - - - - - - - - - - - - - - -\n[C]Wartezeit? Scan mich!\n[C]<qrcode size='25'>${it.url}</qrcode>"
 } ?: ""
 
+
+// Same trick as dietLine; first in line needs no such line.
+private fun aheadLine(ahead: Int) =
+    if (ahead <= 0) "" else "\n[L]Vor dir[R]<b>$ahead ${if (ahead == 1) "Pizza" else "Pizzen"}</b>"
 
 // Under the pizza name so the kitchen grabs a clean board; nothing for Diet.NONE.
 // Leading "\n" instead of its own template line, so untagged pizzas don't print a blank line.

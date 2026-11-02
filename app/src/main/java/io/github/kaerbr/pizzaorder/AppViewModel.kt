@@ -75,7 +75,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(prints = if (status == null) it.prints - id else it.prints + (id to status)) }
 
     // Fresh random QR link on every print, reprint and test print.
-    private fun printout(order: Order) = _state.value.printStyle.format(order, _state.value.menu.funLinks.randomOrNull())
+    // "Vor dir" is worked out per print too, so a reprint doesn't repeat an old queue.
+    private fun printout(order: Order) = _state.value.let { s ->
+        s.printStyle.format(order, s.menu.funLinks.randomOrNull(), s.orders.count { !it.isDone() && it.id < order.id })
+    }
 
     private fun markPrinted(id: Long) {
         // Reprints of printed orders and the test print have nothing to record.
