@@ -23,7 +23,8 @@ data class AppState(
     val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,
 ) {
-    // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
+    // ponytail: restarts at #001 after "Alle löschen", and the last order's number comes round again once it's
+    // cancelled; persist a counter if numbers must stay unique all night
     val nextNumber get() = (orders.maxOfOrNull { it.number } ?: 0) + 1
 
     /** Open orders the kitchen has no paper for; the printout is its only signal. One still printing doesn't count yet. */
@@ -151,6 +152,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { orderRepo.save(_state.value.orders) }
     }
 
+    /** Only for open orders: a finished pizza used its dough, so nothing comes back. */
+    fun cancelOrder(order: Order) {
+        updateMenu { it.adjustDough(1) }
+        _state.update { it.copy(orders = it.orders.filterNot { o -> o.id == order.id }, prints = it.prints - order.id) }
+        viewModelScope.launch { orderRepo.save(_state.value.orders) }
+    }
+
     fun clearAll() {
         // Clearing starts a new evening, so the dough count starts over too. Nothing changes without a limit.
         updateMenu { it.withDoughToday(it.dough?.today) }
@@ -196,6 +204,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFunLink(link: FunLink) = updateMenu { it.withoutFunLink(link) }
 
     fun setDoughToday(count: Int?) = updateMenu { it.withDoughToday(count) }
+
+    fun adjustDough(delta: Int) = updateMenu { it.adjustDough(delta) }
 
     fun resetMenu() {
         // The dough count isn't part of the menu: keep it, mid-party it's still what's in the fridge.

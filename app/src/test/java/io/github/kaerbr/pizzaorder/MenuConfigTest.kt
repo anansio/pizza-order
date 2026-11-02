@@ -73,6 +73,16 @@ class MenuConfigTest {
     }
 
     @Test
+    fun adjustingDoughCorrectsTheStockAndNeverGoesNegative() {
+        val oneUsed = menu.withDoughToday(5).takeDough()!!
+        assertEquals(DoughStock(available = 5, today = 5), oneUsed.adjustDough(1).dough)
+        assertEquals(DoughStock(available = 3, today = 5), oneUsed.adjustDough(-1).dough)
+        assertEquals(DoughStock(available = 6, today = 6), menu.withDoughToday(5).adjustDough(1).dough)
+        assertEquals(DoughStock(available = 0, today = 1), menu.withDoughToday(1).adjustDough(-2).dough)
+        assertNull(menu.adjustDough(1).dough)
+    }
+
+    @Test
     fun lowAndSoldOutFlags() {
         assertEquals(listOf(false, true, true, false), listOf(4, 3, 1, 0).map { DoughStock(it).isLow })
         assertEquals(true, DoughStock(0).isSoldOut)

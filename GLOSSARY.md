@@ -20,6 +20,10 @@ _Avoid_: Custom-Pizza
 Wie viele vorbereitete Teiglinge noch übrig sind; jede Bestellung verbraucht einen, bei 0 ist ausverkauft. Die Anzahl für heute wird im Admin-Panel eingetragen; „Alle Bestellungen löschen“ füllt den Bestand wieder darauf auf.
 _Avoid_: Lager, Stock
 
+**Stornieren**:
+Eine offene Bestellung im Admin-Panel zurücknehmen; sie verschwindet aus der Bestellliste, und ihr Teigling kommt zurück in den Teig-Bestand.
+_Avoid_: Löschen (das meint „Alle Bestellungen löschen“)
+
 **Menü**:
 Die Saucen, Beläge und vordefinierten Pizzen, aus denen Gäste wählen können.
 _Avoid_: Speisekarte, Konfiguration

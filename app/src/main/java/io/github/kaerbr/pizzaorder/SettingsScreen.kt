@@ -91,7 +91,9 @@ fun SettingsScreen(
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
     onSetDoughToday: (Int?) -> Unit,
+    onAdjustDough: (Int) -> Unit,
     onClearAllOrders: () -> Unit,
+    onCancelOrder: (Order) -> Unit,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
@@ -103,6 +105,19 @@ fun SettingsScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showAddPreset by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
+    var cancelling by remember { mutableStateOf<Order?>(null) }
+
+    cancelling?.let { order ->
+        DangerDialog(
+            title = "Bestellung ${order.formattedNumber} stornieren?",
+            text = "${order.customer}, ${order.pizza.name}. " +
+                (if (menu.dough != null) "Der Teigling kommt zurück in den Bestand. " else "") +
+                "Der Ausdruck ist schon raus, also bitte der Küche Bescheid sagen.",
+            action = "Stornieren",
+            onConfirm = { onCancelOrder(order) },
+            onDismiss = { cancelling = null },
+        )
+    }
 
     if (showAddPreset) {
         AddPresetDialog(
@@ -116,21 +131,12 @@ fun SettingsScreen(
     }
 
     confirm?.let { c ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(c.title) },
-            text = { Text(c.text) },
-            confirmButton = {
-                TextButton(
-                    onClick = { confirm = null; if (c == Confirm.ClearOrders) onClearAllOrders() else onResetMenu() },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) { Text(c.action) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text("Abbrechen") }
-            },
+        DangerDialog(
+            title = c.title,
+            text = c.text,
+            action = c.action,
+            onConfirm = { if (c == Confirm.ClearOrders) onClearAllOrders() else onResetMenu() },
+            onDismiss = { confirm = null },
         )
     }
 
@@ -162,7 +168,13 @@ fun SettingsScreen(
                             }
                         }
                         Section(title = "Teig") {
-                            DoughSetting(menu.dough, onSetDoughToday)
+                            DoughSetting(menu.dough, onSetDoughToday, onAdjustDough)
+                        }
+                        // Here and not in the order list, where guests could reach it.
+                        orders.filterNot { it.isDone() }.sortedBy { it.id }.takeIf { it.isNotEmpty() }?.let { open ->
+                            Section(title = "Offene Bestellungen") {
+                                open.forEach { order -> CancelRow(order) { cancelling = order } }
+                            }
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
@@ -357,10 +369,54 @@ private fun DangerButton(text: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit) {
+private fun DangerDialog(title: String, text: String, action: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text) },
+        confirmButton = {
+            TextButton(
+                onClick = { onDismiss(); onConfirm() },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) { Text(action) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
+        },
+    )
+}
+
+@Composable
+private fun CancelRow(order: Order, onCancel: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("${order.formattedNumber} ${order.customer}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(order.pizza.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(
+            onClick = onCancel,
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        ) { Text("Stornieren") }
+    }
+}
+
+@Composable
+private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit, onAdjust: (Int) -> Unit) {
     // Re-keyed so the field shows the new count once it's set.
     var count by remember(dough?.today) { mutableStateOf(dough?.today?.toString().orEmpty()) }
     val quantity = count.toIntOrNull()
+    var confirmRefill by remember { mutableStateOf(false) }
+
+    if (confirmRefill) {
+        DangerDialog(
+            title = "Bestand neu setzen?",
+            text = "Es sind noch ${dough?.available} übrig. Danach sind es $quantity, was schon verbraucht ist, zählt dann nicht mehr. Zum Korrigieren gibt es −1 und +1.",
+            action = "Neu setzen",
+            onConfirm = { onSet(quantity) },
+            onDismiss = { confirmRefill = false },
+        )
+    }
+
     Text(
         when {
             dough == null -> "Kein Limit: Bestellungen werden nicht gezählt."
@@ -380,15 +436,22 @@ private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit) {
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.weight(1f),
         )
-        // Same number again starts the count over, e.g. for the next party.
+        // Fills the stock to this number, so once dough is used up that deserves a second look.
         Button(
-            onClick = { onSet(quantity) },
+            onClick = { if (dough != null && dough.available != dough.today) confirmRefill = true else onSet(quantity) },
             enabled = quantity != null,
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.height(56.dp),
         ) { Text("Setzen") }
         if (dough != null) {
             TextButton(onClick = { onSet(null) }) { Text("Kein Limit") }
+        }
+    }
+    if (dough != null) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Bestand korrigieren", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = { onAdjust(-1) }, enabled = !dough.isSoldOut, shape = RoundedCornerShape(10.dp)) { Text("−1") }
+            OutlinedButton(onClick = { onAdjust(1) }, shape = RoundedCornerShape(10.dp)) { Text("+1") }
         }
     }
 }
