@@ -63,7 +63,7 @@ flowchart LR
 Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktionieren.
 
 > [!IMPORTANT]
-> Die App druckt immer auf dem **ersten gekoppelten** Bluetooth-Gerät. Am besten koppelst du nur einen Drucker mit dem Tablet.
+> Die App druckt immer auf dem **ersten erreichbaren gekoppelten** Drucker. Am besten koppelst du nur einen Drucker mit dem Tablet.
 
 ## 🔒 Admin-Panel
 
