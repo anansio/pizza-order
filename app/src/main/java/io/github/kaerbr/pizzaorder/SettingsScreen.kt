@@ -1,5 +1,7 @@
 package io.github.kaerbr.pizzaorder.ui
 
+import android.app.ActivityManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +29,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -50,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -73,6 +78,7 @@ import io.github.kaerbr.pizzaorder.PrintStatus
 import io.github.kaerbr.pizzaorder.PrintStyle
 import io.github.kaerbr.pizzaorder.isWebLink
 import io.github.kaerbr.pizzaorder.Topping
+import kotlinx.coroutines.delay
 
 private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
 
@@ -193,6 +199,9 @@ fun SettingsScreen(
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
                             TestPrintButton(onTestPrint, testPrintStatus)
+                        }
+                        Section(title = "Tablet") {
+                            ScreenPinButton()
                         }
                         Section(title = "Gefahrenzone") {
                             DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
@@ -401,6 +410,33 @@ private fun DangerButton(text: String, icon: ImageVector, onClick: () -> Unit) {
         Icon(icon, null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(text)
+    }
+}
+
+/** Android's screen pinning: Home and Back stop working, so guests stay in the app. Android asks once before it pins. */
+@Composable
+private fun ScreenPinButton() {
+    val activity = LocalActivity.current ?: return
+    val manager = remember { activity.getSystemService(ActivityManager::class.java) }
+    // ponytail: polled, because the system's prompt fires no callback or lifecycle event when it's accepted.
+    val pinned by produceState(false) {
+        while (true) {
+            value = manager.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+            delay(1_000)
+        }
+    }
+    Text(
+        if (pinned) "Fixiert: Gäste können die App nicht verlassen." else "Hält die App im Vordergrund, damit Gäste sie nicht verlassen.",
+        style = MaterialTheme.typography.bodyLarge,
+    )
+    OutlinedButton(
+        onClick = { if (pinned) activity.stopLockTask() else activity.startLockTask() },
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(if (pinned) Icons.Default.LockOpen else Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(if (pinned) "Fixierung lösen" else "Bildschirm fixieren")
     }
 }
 
