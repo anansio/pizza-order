@@ -216,18 +216,19 @@ fun SettingsScreen(
                         Section(title = "Teig") {
                             DoughSetting(menu.dough, onSetDoughToday, onAdjustDough)
                         }
-                        // Here and not in the order list, where guests could reach it.
-                        orders.filterNot { it.isDone() }.sortedBy { it.id }.takeIf { it.isNotEmpty() }?.let { open ->
-                            Section(title = "Offene Bestellungen") {
-                                open.forEach { order -> CancelRow(order) { cancelling = order } }
-                            }
-                        }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
                             TestPrintButton(onTestPrint, testPrintStatus)
                         }
                         Section(title = "Tablet") {
                             ScreenPinButton()
+                        }
+                        // Here and not in the order list, where guests could reach it. Below the settings:
+                        // it grows with the evening and would push them off the screen.
+                        orders.filterNot { it.isDone() }.sortedBy { it.id }.takeIf { it.isNotEmpty() }?.let { open ->
+                            Section(title = "Offene Bestellungen") {
+                                open.forEach { order -> CancelRow(order) { cancelling = order } }
+                            }
                         }
                         Section(title = "Gefahrenzone") {
                             DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
