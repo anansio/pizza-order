@@ -81,6 +81,8 @@ import io.github.kaerbr.pizzaorder.Sauce
 import io.github.kaerbr.pizzaorder.Topping
 
 internal const val CUSTOM_NAME = "Eigenkreation"
+// Fits next to "Gast" on the 32-character printout line.
+private const val NAME_MAX = 24
 private const val NOTE_MAX = 160
 
 // The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
@@ -159,7 +161,7 @@ fun OrderScreen(
                 Section("01", "Dein Name", headerHeight = QuickMenuSize) {
                     CompactTextField(
                         value = customer,
-                        onValueChange = { customer = it },
+                        onValueChange = { customer = it.take(NAME_MAX) },
                         placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),

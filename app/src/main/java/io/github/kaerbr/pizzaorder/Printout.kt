@@ -25,7 +25,7 @@ object Printout {
     /** One printed line; no segments = an empty paper line. */
     data class Line(val segments: List<Segment>)
 
-    private val alignTag = Regex("""\[([LCR])]""")
+    internal val alignTag = Regex("""\[([LCR])]""")
     private val qrTag = Regex("""<qrcode(?:\s+size='(\d+)')?>(.*?)</qrcode>""")
     private val anyTag = Regex("""<(/?)(\w+)(?:\s+size='(\w+)')?[^>]*>""")
 

@@ -38,6 +38,17 @@ class PrintoutTest {
     }
 
     @Test
+    fun whatGuestsTypeNeverBecomesMarkup() {
+        val order = Order(customer = "[R]<qrcode>x</qrcode>", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(emptyList())), note = "<b>[C]laut</b>")
+        for (style in PrintStyle.entries) {
+            val segments = Printout.parse(style.format(order, null)).flatMap { it.segments }
+            assertTrue(style.name, segments.none { it is QrSegment })
+            val text = segments.filterIsInstance<TextSegment>().flatMap { it.runs }.joinToString("") { it.text }
+            assertTrue(style.name, "(R)(qrcode)x(/qrcode)" in text && "(b)(C)laut(/b)" in text)
+        }
+    }
+
+    @Test
     fun everyStyleTellsHowManyPizzasAreAhead() {
         val order = Order(customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(emptyList())))
         for (style in PrintStyle.entries) {
