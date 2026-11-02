@@ -113,6 +113,9 @@ data class MenuConfig(
     fun allergensOf(pizza: Pizza): Set<Allergen> =
         ingredients(pizza).let { names -> Allergen.entries.filterTo(LinkedHashSet()) { a -> names.any { a in allergensOf(it) } } }
 
+    /** What's on the menu right now; [allergens] also keeps the tags of deleted ingredients, for when they come back. */
+    val allergensInUse get() = (sauces.map { it.name } + toppings.map { it.name }).flatMapTo(HashSet()) { allergensOf(it) }
+
     /** Sets how many dough balls there are today and fills the stock to it; null lifts the limit. */
     fun withDoughToday(count: Int?) = copy(dough = count?.let { DoughStock(it.coerceAtLeast(0)) })
 

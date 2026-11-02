@@ -100,6 +100,14 @@ class MenuConfigTest {
         assertEquals(true, DoughStock(0).isSoldOut)
     }
 
+    // Regression: the legend kept "Enthält Nüsse" after the last ingredient with nuts was deleted.
+    @Test
+    fun deletedIngredientsNoLongerCountAsAllergensInUse() {
+        assertEquals(setOf(Allergen.NUTS), menu.allergensInUse)
+        val withoutNuts = menu.withoutSauce(Sauce("Pesto al basilico")).withoutTopping(Topping("Pinienkerne"))
+        assertEquals(emptySet<Allergen>(), withoutNuts.allergensInUse)
+    }
+
     @Test
     fun editingAPresetKeepsItsPlaceAndANewOneGoesLast() {
         val napoli = Pizza("Napoli", Sauce("Tomate"), Pizza.toppingsOf(listOf("Oliven")))

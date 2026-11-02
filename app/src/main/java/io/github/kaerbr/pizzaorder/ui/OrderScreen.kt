@@ -342,7 +342,7 @@ internal fun AllergenBadge(allergens: Set<Allergen>, modifier: Modifier = Modifi
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DietLegend(menu: MenuConfig, modifier: Modifier = Modifier) {
-    val used = menu.allergens.values.flatten().toSet()
+    val used = menu.allergensInUse
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf(Diet.VEGAN, Diet.VEGETARIAN).forEach { d ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
