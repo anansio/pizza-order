@@ -80,8 +80,13 @@ data class MenuConfig(
         soldOut = soldOut - topping.name,
     )
 
-    fun withPreset(pizza: Pizza) = copy(
-        presets = LinkedHashSet(presets).apply { add(pizza) }
+    /** Puts [pizza] in the place of the preset called [replacing], or at the end if there's none. */
+    fun withPreset(pizza: Pizza, replacing: String = pizza.name) = copy(
+        presets = if (presets.any { it.name == replacing }) {
+            presets.mapTo(LinkedHashSet()) { if (it.name == replacing) pizza else it }
+        } else {
+            LinkedHashSet(presets).apply { add(pizza) }
+        }
     )
 
     fun withoutPreset(name: String) = copy(

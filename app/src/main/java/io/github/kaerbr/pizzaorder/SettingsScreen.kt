@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Lock
@@ -97,7 +98,7 @@ fun SettingsScreen(
     onSetSoldOut: (name: String, out: Boolean) -> Unit,
     onSetDiet: (name: String, Diet) -> Unit,
     onSetAllergen: (name: String, Allergen, contained: Boolean) -> Unit,
-    onAddPreset: (Pizza) -> Unit,
+    onSavePreset: (Pizza, replacing: String?) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
     onExportMenu: () -> Unit,
@@ -117,6 +118,7 @@ fun SettingsScreen(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showAddPreset by remember { mutableStateOf(false) }
+    var editingPreset by remember { mutableStateOf<Pizza?>(null) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     var cancelling by remember { mutableStateOf<Order?>(null) }
     var removing by remember { mutableStateOf<Removal?>(null) }
@@ -145,13 +147,15 @@ fun SettingsScreen(
         )
     }
 
-    if (showAddPreset) {
-        AddPresetDialog(
+    if (showAddPreset || editingPreset != null) {
+        val close = { showAddPreset = false; editingPreset = null }
+        PresetDialog(
             menu = menu,
-            onDismiss = { showAddPreset = false },
-            onAdd = { p ->
-                onAddPreset(p)
-                showAddPreset = false
+            editing = editingPreset,
+            onDismiss = close,
+            onSave = { p ->
+                onSavePreset(p, editingPreset?.name)
+                close()
             },
         )
     }
@@ -290,6 +294,7 @@ fun SettingsScreen(
                                 menu.presets.forEach { preset ->
                                     PresetRow(
                                         preset = preset,
+                                        onEdit = { editingPreset = preset },
                                         onRemove = { onRemovePreset(preset.name) },
                                     )
                                 }
@@ -700,8 +705,9 @@ private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
 }
 
 @Composable
-private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
+private fun PresetRow(preset: Pizza, onEdit: () -> Unit, onRemove: () -> Unit) {
      Card(
+        onClick = onEdit,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -725,6 +731,9 @@ private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
             }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, contentDescription = "Bearbeiten")
+            }
             IconButton(onClick = onRemove) {
                 Icon(
                     Icons.Default.Close,
@@ -736,22 +745,24 @@ private fun PresetRow(preset: Pizza, onRemove: () -> Unit) {
     }
 }
 
-// ─── Add-preset dialog ─────────────────────────────────────────────────────
+// ─── Preset dialog ─────────────────────────────────────────────────────────
 
+/** Adds a preset, or changes [editing] when there is one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AddPresetDialog(
+private fun PresetDialog(
     menu: MenuConfig,
+    editing: Pizza?,
     onDismiss: () -> Unit,
-    onAdd: (Pizza) -> Unit,
+    onSave: (Pizza) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var sauce by remember { mutableStateOf(menu.sauces.firstOrNull() ?: Sauce("Tomate")) }
-    var toppings by remember { mutableStateOf<LinkedHashSet<Topping>>(linkedSetOf()) }
+    var name by remember { mutableStateOf(editing?.name.orEmpty()) }
+    var sauce by remember { mutableStateOf(editing?.sauce ?: menu.sauces.firstOrNull() ?: Sauce("Tomate")) }
+    var toppings by remember { mutableStateOf(editing?.toppings?.toSet().orEmpty()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pizza hinzufügen") },
+        title = { Text(if (editing == null) "Pizza hinzufügen" else "Pizza bearbeiten") },
         text = {
             Column(
                 modifier = Modifier
@@ -809,9 +820,7 @@ private fun AddPresetDialog(
                         menu.toppings.forEach { t ->
                             FilterChip(
                                 selected = t in toppings,
-                                onClick = {
-                                    toppings = LinkedHashSet(toppings).apply { if (!add(t)) remove(t) }
-                                },
+                                onClick = { toppings = if (t in toppings) toppings - t else toppings + t },
                                 label = { Text(t.name) },
                                 border = selectionChipBorder(t in toppings),
                             )
@@ -822,9 +831,9 @@ private fun AddPresetDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onAdd(Pizza(name.trim(), sauce, toppings)) },
+                onClick = { onSave(Pizza(name.trim(), sauce, Pizza.toppingsOf(toppings.map { it.name }))) },
                 enabled = name.isNotBlank(),
-            ) { Text("Hinzufügen") }
+            ) { Text(if (editing == null) "Hinzufügen" else "Speichern") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Abbrechen") }

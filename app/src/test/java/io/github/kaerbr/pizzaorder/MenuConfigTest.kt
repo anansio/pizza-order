@@ -101,6 +101,13 @@ class MenuConfigTest {
     }
 
     @Test
+    fun editingAPresetKeepsItsPlaceAndANewOneGoesLast() {
+        val napoli = Pizza("Napoli", Sauce("Tomate"), Pizza.toppingsOf(listOf("Oliven")))
+        assertEquals(listOf("Speciale", "Napoli", "Salami", "Pizza Verde"), menu.withPreset(napoli, replacing = "Margherita").presets.map { it.name })
+        assertEquals(listOf("Speciale", "Margherita", "Salami", "Pizza Verde", "Napoli"), menu.withPreset(napoli).presets.map { it.name })
+    }
+
+    @Test
     fun menuFileRoundTripsTheMenuButNotTonight() {
         val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withAllergen("Käse", Allergen.SOY, true)
         val loaded = MenuFile.decode(MenuFile.encode(tonight))

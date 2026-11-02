@@ -197,10 +197,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAllergen(name: String, allergen: Allergen, contained: Boolean) = updateMenu { it.withAllergen(name, allergen, contained) }
 
-    fun addPreset(pizza: Pizza) {
+    /** @param replacing the name of the preset being edited; null adds a new one. */
+    fun savePreset(pizza: Pizza, replacing: String?) {
         val clean = pizza.name.trim()
         if (clean.isEmpty()) return
-        updateMenu { it.withPreset(pizza.copy(name = clean)) }
+        updateMenu { it.withPreset(pizza.copy(name = clean), replacing ?: clean) }
     }
 
     fun removePreset(name: String) = updateMenu { it.withoutPreset(name) }

@@ -492,7 +492,7 @@ private fun SettingsScaffold(
             onSetSoldOut     = vm::setSoldOut,
             onSetDiet        = vm::setDiet,
             onSetAllergen    = vm::setAllergen,
-            onAddPreset      = vm::addPreset,
+            onSavePreset     = vm::savePreset,
             onRemovePreset   = vm::removePreset,
             onResetMenu      = vm::resetMenu,
             onExportMenu     = onExportMenu,
