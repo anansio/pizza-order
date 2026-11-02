@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Refresh
@@ -98,6 +100,9 @@ fun SettingsScreen(
     onAddPreset: (Pizza) -> Unit,
     onRemovePreset: (String) -> Unit,
     onResetMenu: () -> Unit,
+    onExportMenu: () -> Unit,
+    onImportMenu: () -> Unit,
+    menuFileMessage: String?,
     onSetDoughToday: (Int?) -> Unit,
     onAdjustDough: (Int) -> Unit,
     onClearAllOrders: () -> Unit,
@@ -156,7 +161,13 @@ fun SettingsScreen(
             title = c.title,
             text = c.text,
             action = c.action,
-            onConfirm = { if (c == Confirm.ClearOrders) onClearAllOrders() else onResetMenu() },
+            onConfirm = {
+                when (c) {
+                    Confirm.ClearOrders -> onClearAllOrders()
+                    Confirm.ResetMenu -> onResetMenu()
+                    Confirm.ImportMenu -> onImportMenu()
+                }
+            },
             onDismiss = { confirm = null },
         )
     }
@@ -294,6 +305,27 @@ fun SettingsScreen(
                                 Text("Pizza hinzufügen")
                             }
                         }
+
+                        Section(title = "Menü-Datei") {
+                            Text(
+                                "Sichert Zutaten, Pizzen und QR-Links in eine Datei, z. B. für den nächsten Abend oder ein neues Tablet.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onExportMenu, shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.FileDownload, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Speichern")
+                                }
+                                OutlinedButton(onClick = { confirm = Confirm.ImportMenu }, shape = RoundedCornerShape(10.dp), modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.FileUpload, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Laden")
+                                }
+                            }
+                            menuFileMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        }
                     }
 
                     2 -> Section(title = "Ausdruck-Design") {
@@ -373,6 +405,7 @@ private fun Diet.next() = Diet.entries[(ordinal + 1) % Diet.entries.size]
 private enum class Confirm(val title: String, val text: String, val action: String) {
     ClearOrders("Alle Bestellungen löschen?", "Auch Teig-Zähler und „Heute aus“ starten von vorn. Das kann nicht rückgängig gemacht werden.", "Löschen"),
     ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
+    ImportMenu("Menü laden?", "Saucen, Beläge, Pizzen und QR-Links werden durch die Datei ersetzt. Bestellungen bleiben erhalten.", "Datei wählen"),
 }
 
 /** An ingredient waiting for its delete confirmation. */

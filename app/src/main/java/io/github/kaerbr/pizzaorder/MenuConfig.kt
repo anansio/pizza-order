@@ -1,6 +1,24 @@
 package io.github.kaerbr.pizzaorder
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** The file the admin panel saves the menu to and loads it from. */
+object MenuFile {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+    }
+
+    // Dough and what ran out belong to tonight, not to the menu.
+    fun encode(menu: MenuConfig): String = json.encodeToString(MenuConfig.serializer(), menu.copy(dough = null, soldOut = emptySet()))
+
+    /** @throws IllegalArgumentException on anything that isn't a usable menu. */
+    fun decode(text: String): MenuConfig = json.decodeFromString(MenuConfig.serializer(), text).also {
+        // Any JSON object decodes to an empty menu, thanks to the defaults; without a sauce nobody could order.
+        require(it.sauces.isNotEmpty()) { "Menü ohne Sauce" }
+    }
+}
 
 @Serializable
 data class MenuConfig(

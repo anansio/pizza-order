@@ -159,8 +159,20 @@ fun App(vm: AppViewModel) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showLock by remember { mutableStateOf(false) }
 
+    // Up here, not in the admin panel: the file dialog stops the activity, so without [inFileDialog] the lock
+    // below would close the panel, and a launcher inside it would be gone before the result arrives.
+    var inFileDialog by rememberSaveable { mutableStateOf(false) }
+    val menuExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        inFileDialog = false
+        uri?.let(vm::exportMenu)
+    }
+    val menuImport = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        inFileDialog = false
+        uri?.let(vm::importMenu)
+    }
+
     // Leaving the app (home button, screen off) always locks the admin panel.
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { showSettings = false; showLock = false }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (!inFileDialog) { showSettings = false; showLock = false } }
 
     PizzaTheme(darkTheme = darkTheme, palette = palette) {
         if (showLock) {
@@ -186,6 +198,9 @@ fun App(vm: AppViewModel) {
                     vm = vm,
                     state = state,
                     onClose = { showSettings = false },
+                    onExportMenu = { inFileDialog = true; menuExport.launch("pizza-menu.json") },
+                    // octet-stream too: some file apps don't know .json.
+                    onImportMenu = { inFileDialog = true; menuImport.launch(arrayOf("application/json", "application/octet-stream")) },
                 )
             } else {
                 MainScaffold(
@@ -438,6 +453,8 @@ private fun SettingsScaffold(
     vm: AppViewModel,
     state: AppState,
     onClose: () -> Unit,
+    onExportMenu: () -> Unit,
+    onImportMenu: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -478,6 +495,9 @@ private fun SettingsScaffold(
             onAddPreset      = vm::addPreset,
             onRemovePreset   = vm::removePreset,
             onResetMenu      = vm::resetMenu,
+            onExportMenu     = onExportMenu,
+            onImportMenu     = onImportMenu,
+            menuFileMessage  = state.menuFileMessage,
             onSetDoughToday  = vm::setDoughToday,
             onAdjustDough    = vm::adjustDough,
             printStyle      = state.printStyle,

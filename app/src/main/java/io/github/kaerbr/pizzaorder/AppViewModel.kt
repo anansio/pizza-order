@@ -2,15 +2,18 @@ package io.github.kaerbr.pizzaorder
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 
 data class AppState(
@@ -22,6 +25,8 @@ data class AppState(
     /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
     val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,
+    /** Outcome of the last menu export or import, shown next to its buttons. */
+    val menuFileMessage: String? = null,
 ) {
     // ponytail: restarts at #001 after "Alle löschen", and the last order's number comes round again once it's
     // cancelled; persist a counter if numbers must stay unique all night
@@ -211,6 +216,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setDoughToday(count: Int?) = updateMenu { it.withDoughToday(count) }
 
     fun adjustDough(delta: Int) = updateMenu { it.adjustDough(delta) }
+
+    fun exportMenu(uri: Uri) = viewModelScope.launch {
+        val menu = _state.value.menu
+        val written = withContext(Dispatchers.IO) {
+            runCatching { resolver.openOutputStream(uri, "wt")!!.use { it.write(MenuFile.encode(menu).toByteArray()) } }
+        }
+        _state.update { it.copy(menuFileMessage = if (written.isSuccess) "Menü gespeichert." else "Speichern fehlgeschlagen.") }
+    }
+
+    fun importMenu(uri: Uri) = viewModelScope.launch {
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching { MenuFile.decode(resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }) }
+        }
+        // Keeps the dough for the same reason as resetMenu.
+        loaded.onSuccess { imported -> updateMenu { imported.copy(dough = it.dough) } }
+        _state.update { it.copy(menuFileMessage = if (loaded.isSuccess) "Menü geladen." else "Keine gültige Menü-Datei, das Menü bleibt unverändert.") }
+    }
+
+    private val resolver get() = getApplication<Application>().contentResolver
 
     fun resetMenu() {
         // The dough count isn't part of the menu: keep it, mid-party it's still what's in the fridge.

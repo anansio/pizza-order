@@ -100,6 +100,21 @@ class MenuConfigTest {
         assertEquals(true, DoughStock(0).isSoldOut)
     }
 
+    @Test
+    fun menuFileRoundTripsTheMenuButNotTonight() {
+        val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withAllergen("Käse", Allergen.SOY, true)
+        val loaded = MenuFile.decode(MenuFile.encode(tonight))
+        assertEquals(tonight.copy(dough = null, soldOut = emptySet()), loaded)
+    }
+
+    // A wrong file must not wipe the menu: valid JSON alone would decode to an empty one.
+    @Test
+    fun menuFileRejectsWhatIsNoMenu() {
+        for (text in listOf("{}", """{"name":"Einkaufsliste"}""", "keine Datei", """{"sauces":[],"presets":[]}""")) {
+            assertThrows(text, IllegalArgumentException::class.java) { MenuFile.decode(text) }
+        }
+    }
+
     // menu.json from before the dough count existed must still load (JsonStore would otherwise fall back to the default menu).
     @Test
     fun oldMenuWithoutDoughHasNoLimit() {
