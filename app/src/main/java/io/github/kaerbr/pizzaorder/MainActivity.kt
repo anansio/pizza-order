@@ -96,6 +96,7 @@ import io.github.kaerbr.pizzaorder.ui.PatternLock
 import io.github.kaerbr.pizzaorder.ui.SettingsScreen
 import io.github.kaerbr.pizzaorder.ui.theme.Palette
 import io.github.kaerbr.pizzaorder.ui.clearFocusOnOutsideTap
+import io.github.kaerbr.pizzaorder.ui.selectionBorder
 import io.github.kaerbr.pizzaorder.ui.theme.PizzaTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -324,7 +325,7 @@ private fun QuickMenuItem(icon: ImageVector, label: String, selected: Boolean = 
         shape = CircleShape,
         color = if (selected) colors.primaryContainer else colors.surface,
         contentColor = if (selected) colors.primary else colors.onSurface,
-        border = BorderStroke(1.dp, if (selected) colors.primary else colors.outline),
+        border = selectionBorder(selected),
         shadowElevation = 3.dp,
     ) {
         Row(
@@ -359,6 +360,7 @@ private fun AppearanceDialog(
                             selected = dark == value,
                             onClick = { onDark(value) },
                             shape = SegmentedButtonDefaults.itemShape(i, 2),
+                            border = selectionBorder(dark == value),
                         ) { Text(label) }
                     }
                 }
@@ -369,7 +371,7 @@ private fun AppearanceDialog(
                         onClick = { onPalette(p) },
                         shape = RoundedCornerShape(14.dp),
                         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                        border = selectionBorder(selected),
                     ) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {

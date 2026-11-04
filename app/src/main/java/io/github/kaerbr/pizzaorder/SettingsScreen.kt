@@ -41,7 +41,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -239,7 +238,7 @@ fun SettingsScreen(
                                 onClick = { onPrintStyle(style) },
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                border = selectionBorder(selected),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -294,6 +293,7 @@ private fun AllergenRow(name: String, contained: Set<Allergen>, onToggle: (Aller
                 onClick = { onToggle(allergen, !selected) },
                 label = { Text(allergen.label) },
                 leadingIcon = if (selected) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null,
+                border = selectionChipBorder(selected),
             )
         }
     }
@@ -371,7 +371,7 @@ private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit) {
         color = if (dough != null && (dough.isSoldOut || dough.isLow)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
     )
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        AppTextField(
             value = count,
             onValueChange = { new -> count = new.filter(Char::isDigit).take(4) },
             label = { Text("Teiglinge heute") },
@@ -453,7 +453,7 @@ private fun AddRow(placeholder: String, onAdd: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        OutlinedTextField(
+        AppTextField(
             value = text,
             onValueChange = { text = it },
             placeholder = { Text(placeholder) },
@@ -483,7 +483,7 @@ private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
     var url by remember { mutableStateOf("") }
     val urlInvalid = url.isNotBlank() && !isWebLink(url)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        AppTextField(
             value = teaser,
             onValueChange = { teaser = it },
             placeholder = { Text("Bezeichnung (wird nicht gedruckt), z.B. Pizza-Katzen") },
@@ -493,7 +493,7 @@ private fun AddLinkRow(onAdd: (teaser: String, url: String) -> Unit) {
         )
         // Top-aligned: the error line under the field would otherwise push the button off its row.
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
+            AppTextField(
                 value = url,
                 onValueChange = { url = it },
                 placeholder = { Text("https://…") },
@@ -576,7 +576,7 @@ private fun AddPresetDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                OutlinedTextField(
+                AppTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Name") },
@@ -601,6 +601,7 @@ private fun AddPresetDialog(
                             selected = s == sauce,
                             onClick = { sauce = s },
                             label = { Text(s.name) },
+                            border = selectionChipBorder(s == sauce),
                         )
                     }
                 }
@@ -629,6 +630,7 @@ private fun AddPresetDialog(
                                     toppings = LinkedHashSet(toppings).apply { if (!add(t)) remove(t) }
                                 },
                                 label = { Text(t.name) },
+                                border = selectionChipBorder(t in toppings),
                             )
                         }
                     }

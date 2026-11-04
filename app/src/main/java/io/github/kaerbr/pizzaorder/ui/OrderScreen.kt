@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -39,10 +40,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,10 +56,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -85,6 +92,23 @@ internal val FormSidePadding = 20.dp
 internal val ControlHeight = 48.dp
 internal val ChipHeight = 40.dp
 internal val QuickMenuSize = ChipHeight
+
+// Every selected or focused control uses this, so cards, chips and text fields can't drift apart.
+internal val SelectedBorderWidth = 1.5.dp
+
+@Composable
+internal fun selectionBorder(selected: Boolean) = MaterialTheme.colorScheme.let { colors ->
+    BorderStroke(if (selected) SelectedBorderWidth else 1.dp, if (selected) colors.primary else colors.outline)
+}
+
+@Composable
+internal fun selectionChipBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder(
+    enabled = true, selected = selected,
+    borderColor = MaterialTheme.colorScheme.outline,
+    selectedBorderColor = MaterialTheme.colorScheme.primary,
+    // Material's default is 0dp, which draws a 1px hairline.
+    selectedBorderWidth = SelectedBorderWidth,
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -345,9 +369,7 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
 /**
  * Material's outlined field at [ControlHeight]: OutlinedTextField forces a 56dp minimum and 16dp inner
  * padding, which made the inputs look oversized next to the 48dp order button and 40dp chips.
- * Same look and focus colours, built from its own decoration box with 12dp vertical padding.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactTextField(
     value: String,
@@ -358,17 +380,57 @@ private fun CompactTextField(
     modifier: Modifier = Modifier,
     singleLine: Boolean = false,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+) = AppTextField(
+    value = value,
+    onValueChange = onValueChange,
+    placeholder = { Text(placeholder) },
+    keyboardOptions = keyboardOptions,
+    enabled = enabled,
+    modifier = modifier,
+    singleLine = singleLine,
+    maxLines = maxLines,
+    shape = RoundedCornerShape(14.dp),
+    colors = fieldColors(),
+    minHeight = ControlHeight,
+    contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 12.dp, bottom = 12.dp),
+)
+
+/**
+ * OutlinedTextField rebuilt from its own decoration box: it has no parameter for the focused border,
+ * so [SelectedBorderWidth] can only reach the field through this container.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AppTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    label: @Composable (() -> Unit)? = null,
+    placeholder: @Composable (() -> Unit)? = null,
+    supportingText: @Composable (() -> Unit)? = null,
+    isError: Boolean = false,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    singleLine: Boolean = false,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    shape: Shape = OutlinedTextFieldDefaults.shape,
+    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
+    minHeight: Dp = OutlinedTextFieldDefaults.MinHeight,
+    contentPadding: PaddingValues = OutlinedTextFieldDefaults.contentPadding(),
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val colors = fieldColors()
-    val shape = RoundedCornerShape(14.dp)
+    // The raised label sits half above the outline, so that half needs reserving, as OutlinedTextField does.
+    val labelOverhang = if (label == null) 0.dp else with(LocalDensity.current) { MaterialTheme.typography.bodySmall.lineHeight.toDp() / 2 }
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         enabled = enabled,
-        modifier = modifier.heightIn(min = ControlHeight),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        modifier = modifier
+            .semantics(mergeDescendants = label != null) { if (isError) error("Ungültige Eingabe") }
+            .padding(top = labelOverhang)
+            .heightIn(min = minHeight),
+        textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(if (isError) colors.errorCursorColor else colors.cursorColor),
         keyboardOptions = keyboardOptions,
         singleLine = singleLine,
         maxLines = maxLines,
@@ -381,16 +443,20 @@ private fun CompactTextField(
             singleLine = singleLine,
             visualTransformation = VisualTransformation.None,
             interactionSource = interactionSource,
-            placeholder = { Text(placeholder) },
+            isError = isError,
+            label = label,
+            placeholder = placeholder,
+            supportingText = supportingText,
             colors = colors,
-            contentPadding = OutlinedTextFieldDefaults.contentPadding(top = 12.dp, bottom = 12.dp),
+            contentPadding = contentPadding,
             container = {
                 OutlinedTextFieldDefaults.Container(
                     enabled = enabled,
-                    isError = false,
+                    isError = isError,
                     interactionSource = interactionSource,
                     colors = colors,
                     shape = shape,
+                    focusedBorderThickness = SelectedBorderWidth,
                 )
             },
         )
@@ -424,7 +490,7 @@ private fun PizzaCard(name: String, description: String, diet: Diet, allergens: 
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         color = if (selected) colors.primaryContainer else colors.surface,
-        border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outline),
+        border = selectionBorder(selected),
     ) {
         // Name with diet leaf on top, ingredients below (wrapping as needed). The separate badge row made
         // every card row ~50dp taller on the 8.7" tablet. Selection shows as border and fill, like the chips.
@@ -468,13 +534,7 @@ private fun Pill(label: String, selected: Boolean, enabled: Boolean, icon: Image
             disabledContainerColor = MaterialTheme.colorScheme.surface,
             disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true, selected = selected,
-            borderColor = MaterialTheme.colorScheme.outline,
-            selectedBorderColor = MaterialTheme.colorScheme.primary,
-            // Material's default is 0dp, which draws a 1px hairline; 2dp matches PizzaCard and the focused fields.
-            selectedBorderWidth = 2.dp,
-        ),
+        border = selectionChipBorder(selected),
         modifier = Modifier.heightIn(min = ChipHeight),
     )
 }
