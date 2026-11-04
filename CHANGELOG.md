@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/kaerbr/[secure]/compare/v1.8.1...v1.8.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* Rahmen ausgewählter und fokussierter Elemente einheitlich 1,5 dp ([b910472](https://github.com/kaerbr/[secure]/commit/b91047275288b34bd236c4fccb321ae1e00cad6c))
+
 ## [1.8.1](https://github.com/kaerbr/[secure]/compare/v1.8.0...v1.8.1) (2026-11-01)
 
 
