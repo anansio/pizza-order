@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -227,10 +228,12 @@ fun OrderScreen(
                 }) {
                     CompactTextField(
                         value = note,
-                        onValueChange = { note = it.take(NOTE_MAX) },
+                        // Keyboards that still send Enter as "\n" (or a pasted break) get no line break either.
+                        onValueChange = { note = it.replace('\n', ' ').take(NOTE_MAX) },
                         placeholder = "z.B. extra knusprig, ohne Oregano…",
                         maxLines = 3,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        // OK closes the keyboard instead of a line break: the note still wraps over up to 3 lines.
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
                         enabled = !soldOut,
                         modifier = Modifier.fillMaxWidth(),
                     )
