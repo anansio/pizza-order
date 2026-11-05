@@ -80,8 +80,11 @@ import kotlinx.coroutines.delay
 private val Paper = Color(0xFFFFFDF7)
 private val Ink = Color(0xFF1C1B1A)
 
-/** Paper speed of the party printer (MUNBYN IMP001): the slip feeds in as fast as the real one comes out. */
-private const val PRINT_SPEED_MM_PER_S = 90f
+/**
+ * Paper speed of the party printer (MUNBYN IMP001): the slip feeds in as fast as the real one comes out.
+ * Measured, not the 90 mm/s of the data sheet: the real slip took twice as long. Tune here if it drifts.
+ */
+private const val PRINT_SPEED_MM_PER_S = 45f
 /** Full paper width; the printer prints on [Printout.PAPER_MM] of it. */
 private const val PAPER_WIDTH_MM = 58f
 
