@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.nio.charset.Charset
 
 /**
  * Thin wrapper around DantSu's ESC/POS library.
@@ -54,7 +55,7 @@ class Printer(private val context: Context) {
             val printer = EscPosPrinter(
                 connection,
                 203, Printout.PAPER_MM, Printout.LINE_CHARS,
-                EscPosCharsetEncoding("windows-1252", 16),
+                EscPosCharsetEncoding(CHARSET, 16),
             )
             try {
                 printer.printFormattedTextAndCut(markup)
@@ -72,3 +73,12 @@ class Printer(private val context: Context) {
         return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     }
 }
+
+private const val CHARSET = "windows-1252"
+private val printerCharset = Charset.forName(CHARSET).newEncoder()
+
+/**
+ * Drops what the printer's codepage can't print (emoji and the like), which would come out as "?".
+ * Android has no flag to hide the emoji key, so guest fields filter instead. Main thread only: the encoder isn't thread-safe.
+ */
+internal fun String.printableOnly() = filter(printerCharset::canEncode)

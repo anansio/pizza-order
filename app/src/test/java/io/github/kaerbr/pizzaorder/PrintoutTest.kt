@@ -59,6 +59,11 @@ class PrintoutTest {
     }
 
     @Test
+    fun emojiAreDroppedUmlautsStay() {
+        assertEquals("Jörg  extra scharf €", "Jörg 🍕 extra scharf €😋".printableOnly())
+    }
+
+    @Test
     fun everyStyleParsesWithoutStrayMarkup() {
         val order = Order(number = 7, customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(listOf("Pilze"))), note = "knusprig", diet = Diet.VEGETARIAN, allergens = setOf(Allergen.LACTOSE, Allergen.NUTS))
         for (style in PrintStyle.entries) {

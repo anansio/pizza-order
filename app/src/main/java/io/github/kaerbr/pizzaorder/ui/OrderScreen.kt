@@ -80,6 +80,7 @@ import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Pizza
 import io.github.kaerbr.pizzaorder.Sauce
 import io.github.kaerbr.pizzaorder.Topping
+import io.github.kaerbr.pizzaorder.printableOnly
 
 internal const val CUSTOM_NAME = "Eigenkreation"
 // Fits next to "Gast" on the 32-character printout line.
@@ -162,7 +163,7 @@ fun OrderScreen(
                 Section("01", "Dein Name", headerHeight = QuickMenuSize) {
                     CompactTextField(
                         value = customer,
-                        onValueChange = { customer = it.take(NAME_MAX) },
+                        onValueChange = { customer = it.printableOnly().take(NAME_MAX) },
                         placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -229,7 +230,7 @@ fun OrderScreen(
                     CompactTextField(
                         value = note,
                         // Keyboards that still send Enter as "\n" (or a pasted break) get no line break either.
-                        onValueChange = { note = it.replace('\n', ' ').take(NOTE_MAX) },
+                        onValueChange = { note = it.replace('\n', ' ').printableOnly().take(NOTE_MAX) },
                         placeholder = "z.B. extra knusprig, ohne Oregano…",
                         maxLines = 3,
                         // OK closes the keyboard instead of a line break: the note still wraps over up to 3 lines.
