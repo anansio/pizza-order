@@ -49,16 +49,6 @@ class PrintoutTest {
     }
 
     @Test
-    fun everyStyleTellsHowManyPizzasAreAhead() {
-        val order = Order(customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(emptyList())))
-        for (style in PrintStyle.entries) {
-            assertTrue(style.name, "3 Pizzen" in style.format(order, null, ahead = 3))
-            assertTrue(style.name, "1 Pizza<" in style.format(order, null, ahead = 1))
-            assertTrue(style.name, "Vor dir" !in style.format(order, null, ahead = 0))
-        }
-    }
-
-    @Test
     fun emojiAreDroppedUmlautsStay() {
         assertEquals("Jörg  extra scharf €", "Jörg 🍕 extra scharf €😋".printableOnly())
     }
