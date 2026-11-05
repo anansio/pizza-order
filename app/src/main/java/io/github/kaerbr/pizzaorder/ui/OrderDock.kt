@@ -49,13 +49,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -193,9 +196,11 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
         },
         ease(), label = "ovenGlow",
     )
-    val fire = rememberInfiniteTransition(label = "fire")
-    val flicker by fire.animateFloat(0.9f, 1.1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "flicker")
-    val shimmer by fire.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "shimmer")
+    // Runs only while it shows, and is read in the draw phase below: a per-frame read here in composition
+    // rebuilt the whole track 60 times a second, for as long as the order screen was open.
+    val shimmer = if (order.complete) {
+        rememberInfiniteTransition(label = "shimmer").animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "shimmer")
+    } else null
 
     // Not clipped: the oven reaches past the track. The track itself is the first child instead.
     BoxWithConstraints(Modifier.fillMaxWidth().height(TrackHeight)) {
@@ -250,27 +255,36 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
         }
         val labelStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
         val shimmerPx = with(density) { maxWidth.toPx() }
+        val accent = colors.primary
         Text(
             label,
-            style = if (order.complete) labelStyle.copy(
-                brush = Brush.linearGradient(
-                    listOf(colors.onSurface, colors.primary, colors.onSurface),
-                    start = Offset(shimmer * shimmerPx * 1.5f - shimmerPx * 0.5f - 80f, 0f),
-                    end = Offset(shimmer * shimmerPx * 1.5f - shimmerPx * 0.5f + 80f, 0f),
-                ),
-            ) else labelStyle.copy(color = colors.onSurfaceVariant),
+            style = labelStyle.copy(color = if (order.complete) colors.onSurface else colors.onSurfaceVariant),
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(start = KnobSize + TrackInset * 3, end = (TrackHeight + OvenSize) / 2 + TrackInset * 2)
-                // Gets out of the way while the pizza slides over it.
-                .graphicsLayer { alpha = 1f - (progress() * 1.6f).coerceAtMost(1f) },
+                // Gets out of the way while the pizza slides over it. Offscreen, so the shimmer only tints the glyphs.
+                .graphicsLayer {
+                    alpha = 1f - (progress() * 1.6f).coerceAtMost(1f)
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                // A band of accent colour sweeping across the text: redraws each frame, never re-lays out.
+                .drawWithContent {
+                    drawContent()
+                    shimmer?.let {
+                        val centre = it.value * shimmerPx * 1.5f - shimmerPx * 0.5f
+                        drawRect(
+                            Brush.horizontalGradient(listOf(Color.Transparent, accent, Color.Transparent), startX = centre - 80f, endX = centre + 80f),
+                            blendMode = BlendMode.SrcAtop,
+                        )
+                    }
+                },
         )
 
         Oven(
             rim = colors.onSurface.copy(alpha = 0.15f),
             glow = { (glowBase + progress() * 0.3f).coerceAtMost(1f) },
-            flicker = flicker,
+            lit = !order.soldOut,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 // requiredSize lets it outgrow the track's height (centred on it); the offset re-centres it
@@ -326,7 +340,11 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
 
 /** A round wood-fired oven seen from the front: dark dome, arched mouth with embers inside. */
 @Composable
-private fun Oven(rim: Color, glow: () -> Float, flicker: Float, modifier: Modifier = Modifier) {
+private fun Oven(rim: Color, glow: () -> Float, lit: Boolean, modifier: Modifier = Modifier) {
+    // Read only inside the Canvas: each frame just redraws the oven. Sold out the fire is out, so it stops.
+    val flicker = if (lit) {
+        rememberInfiniteTransition(label = "fire").animateFloat(0.9f, 1.1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "flicker")
+    } else null
     Canvas(modifier) {
         val r = size.minDimension / 2
         drawCircle(Brush.radialGradient(listOf(Color(0xFF4A3328), Color(0xFF261A15)), center, r), r)
@@ -349,7 +367,7 @@ private fun Oven(rim: Color, glow: () -> Float, flicker: Float, modifier: Modifi
             drawCircle(
                 Brush.radialGradient(
                     listOf(Color(0xFFFFD36A), Color(0xFFF0702A), Color(0x008B2A12)),
-                    center = Offset(center.x, floor), radius = h * 1.15f * flicker,
+                    center = Offset(center.x, floor), radius = h * 1.15f * (flicker?.value ?: 1f),
                 ),
                 radius = h * 1.2f, center = Offset(center.x, floor), alpha = glow(),
             )
