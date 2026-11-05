@@ -129,7 +129,7 @@ data class MenuConfig(
         else -> copy(dough = dough.copy(available = dough.available - 1))
     }
 
-    /** Corrects the stock: a cancelled order, a dropped dough ball, one more found. Today's count grows along. Unchanged without a limit. */
+    /** Corrects the stock: a wrong order, a dropped dough ball, one more found. Today's count grows along. Unchanged without a limit. */
     fun adjustDough(delta: Int) = copy(dough = dough?.let { d ->
         val next = (d.available + delta).coerceAtLeast(0)
         d.copy(available = next, today = maxOf(d.today, next))

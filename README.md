@@ -83,7 +83,6 @@ Im Admin-Panel kannst du:
 - das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen anlegen und ändern), auf das Standard-Menü zurücksetzen oder in einer **Datei** sichern und wieder laden
 - Zutaten für heute als **aus** markieren: Gäste können sie und Pizzen damit nicht mehr wählen, das Menü bleibt unverändert
 - eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt), und den Bestand um eins korrigieren
-- offene **Bestellungen stornieren**; der Teigling kommt dabei zurück in den Bestand
 - den **Bildschirm fixieren**, damit Home und Zurück gesperrt sind (gegen gezieltes Lösen hilft die PIN-Abfrage in den Android-Einstellungen)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
 - **QR-Links** für den Ausdruck pflegen

@@ -27,8 +27,7 @@ data class AppState(
     /** Outcome of the last menu export or import, shown next to its buttons. */
     val menuFileMessage: String? = null,
 ) {
-    // ponytail: restarts at #001 after "Alle löschen", and the last order's number comes round again once it's
-    // cancelled; persist a counter if numbers must stay unique all night
+    // ponytail: restarts at #001 after "Alle löschen"; persist a counter if numbers must stay unique all night
     val nextNumber get() = (orders.maxOfOrNull { it.number } ?: 0) + 1
 
     /** Open orders the kitchen has no paper for; the printout is its only signal. One still printing doesn't count yet. */
@@ -155,13 +154,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 else it
             })
         }
-        viewModelScope.launch { orderRepo.save(_state.value.orders) }
-    }
-
-    /** Only for open orders: a finished pizza used its dough, so nothing comes back. */
-    fun cancelOrder(order: Order) {
-        updateMenu { it.adjustDough(1) }
-        _state.update { it.copy(orders = it.orders.filterNot { o -> o.id == order.id }, prints = it.prints - order.id) }
         viewModelScope.launch { orderRepo.save(_state.value.orders) }
     }
 

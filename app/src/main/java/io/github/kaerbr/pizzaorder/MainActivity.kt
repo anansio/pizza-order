@@ -484,7 +484,6 @@ private fun SettingsScaffold(
             menu = state.menu,
             orders = state.orders,
             onClearAllOrders = vm::clearAll,
-            onCancelOrder    = vm::cancelOrder,
             onAddSauce       = vm::addSauce,
             onRemoveSauce    = vm::removeSauce,
             onAddTopping     = vm::addTopping,

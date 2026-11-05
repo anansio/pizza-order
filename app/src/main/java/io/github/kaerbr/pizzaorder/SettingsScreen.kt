@@ -107,7 +107,6 @@ fun SettingsScreen(
     onSetDoughToday: (Int?) -> Unit,
     onAdjustDough: (Int) -> Unit,
     onClearAllOrders: () -> Unit,
-    onCancelOrder: (Order) -> Unit,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
@@ -120,7 +119,6 @@ fun SettingsScreen(
     var showAddPreset by remember { mutableStateOf(false) }
     var editingPreset by remember { mutableStateOf<Pizza?>(null) }
     var confirm by remember { mutableStateOf<Confirm?>(null) }
-    var cancelling by remember { mutableStateOf<Order?>(null) }
     var removing by remember { mutableStateOf<Removal?>(null) }
 
     removing?.let { r ->
@@ -132,18 +130,6 @@ fun SettingsScreen(
             action = "Löschen",
             onConfirm = r.remove,
             onDismiss = { removing = null },
-        )
-    }
-
-    cancelling?.let { order ->
-        DangerDialog(
-            title = "Bestellung ${order.formattedNumber} stornieren?",
-            text = "${order.customer}, ${order.pizza.name}. " +
-                (if (menu.dough != null) "Der Teigling kommt zurück in den Bestand. " else "") +
-                "Der Ausdruck ist schon raus, also bitte der Küche Bescheid sagen.",
-            action = "Stornieren",
-            onConfirm = { onCancelOrder(order) },
-            onDismiss = { cancelling = null },
         )
     }
 
@@ -222,13 +208,6 @@ fun SettingsScreen(
                         }
                         Section(title = "Tablet") {
                             ScreenPinButton()
-                        }
-                        // Here and not in the order list, where guests could reach it. Below the settings:
-                        // it grows with the evening and would push them off the screen.
-                        orders.filterNot { it.isDone() }.sortedBy { it.id }.takeIf { it.isNotEmpty() }?.let { open ->
-                            Section(title = "Offene Bestellungen") {
-                                open.forEach { order -> CancelRow(order) { cancelling = order } }
-                            }
                         }
                         Section(title = "Gefahrenzone") {
                             DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
@@ -516,20 +495,6 @@ private fun DangerDialog(title: String, text: String, action: String, onConfirm:
             TextButton(onClick = onDismiss) { Text("Abbrechen") }
         },
     )
-}
-
-@Composable
-private fun CancelRow(order: Order, onCancel: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("${order.formattedNumber} ${order.customer}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(order.pizza.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        TextButton(
-            onClick = onCancel,
-            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-        ) { Text("Stornieren") }
-    }
 }
 
 @Composable
