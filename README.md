@@ -111,7 +111,7 @@ Voraussetzung ist [Android Studio](https://developer.android.com/studio). Projek
 
 Vor jedem Debug-Build laufen die Unit-Tests (`./gradlew testDebugUnitTest`), damit ein ungültiges Standard-Menü nicht erst beim App-Start auffällt.
 
-**Flüssig oder nicht?** Debug-Builds laufen spürbar ruckeliger als die Release-APK, weil sie nicht optimiert werden. Um die Geschwindigkeit zu beurteilen, `./gradlew assemblePreview` bauen: optimiert wie das Release, aber mit dem Debug-Schlüssel signiert und als eigene App „Pizza Order (Preview)“ installierbar. Bei Pull Requests legt CI diese APK neben die Debug-APK.
+**Flüssig oder nicht?** Debug-Builds laufen spürbar ruckeliger als die Release-APK, weil sie nicht optimiert werden. Um die Geschwindigkeit zu beurteilen, `./gradlew assemblePreview` bauen: optimiert wie das Release, aber mit dem Debug-Schlüssel signiert und als eigene App „Pizza Order (Preview)“ installierbar.
 
 **Standard-Menü anpassen:** Das Menü, mit dem die App ausgeliefert wird, steht in [`MenuConfig.kt`](app/src/main/java/io/github/kaerbr/pizzaorder/MenuConfig.kt) (`MenuConfig.Standard`). Dort ist auch für jede Zutat hinterlegt, ob sie vegan oder vegetarisch ist und welche Allergene sie enthält.
 
@@ -129,7 +129,7 @@ Issues und Pull Requests sind willkommen.
 
 <br/>
 
-Bei jedem Push auf `main` baut und testet GitHub Actions die App. `feat:`- und `fix:`-Commits erzeugen per [semantic-release](https://semantic-release.gitbook.io/) eine neue Version mit `CHANGELOG.md`-Eintrag und einem GitHub Release samt signierter APK. Die Version in `app/build.gradle.kts` setzt semantic-release, bitte nicht von Hand ändern.
+Bei Pull Requests und jedem Push auf `main` lässt GitHub Actions die Unit-Tests und Android Lint laufen. Eine APK entsteht nur auf `main`, beim Release. `feat:`- und `fix:`-Commits erzeugen per [semantic-release](https://semantic-release.gitbook.io/) eine neue Version mit `CHANGELOG.md`-Eintrag und einem GitHub Release samt signierter APK. Die Version in `app/build.gradle.kts` setzt semantic-release, bitte nicht von Hand ändern.
 
 Signiert wird mit dem Release-Keystore aus den Repo-Secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` und `KEY_PASSWORD`. Lokale Builds sind davon nicht betroffen.
 

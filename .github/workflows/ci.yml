@@ -15,40 +15,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # semantic-release needs all tags and commits
-      - uses: actions/setup-java@v5
+      # setup-java's own Gradle cache: setup-gradle v6 moved its caching under proprietary terms.
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v5
+          cache: gradle
 
-      # Runs the unit tests too (see app/build.gradle.kts). Preview runs R8, so a broken shrinker rule
-      # fails here and not only in the release step after merging. Lint fails the build on errors, not on warnings.
-      - run: ./gradlew assembleDebug assemblePreview lintDebug
+      # Checks only, no APK: that is built on main alone, by semantic-release (.releaserc.yaml) when it releases.
+      # Lint fails the build on errors, not on warnings.
+      - run: ./gradlew testDebugUnitTest lintDebug
 
-      # Test APKs per PR: Checks → build → Summary → Artifacts. Both install next to the release app
-      # (own app ids). Debug for trying out features, Preview to judge how smooth it runs on the tablet.
-      - if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pizza-order-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-      - if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: pizza-order-preview-apk
-          path: app/build/outputs/apk/preview/*.apk
-          if-no-files-found: error
-
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/setup-node@v5
+      - if: github.event_name == 'push'
+        uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}

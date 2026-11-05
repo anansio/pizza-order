@@ -37,7 +37,7 @@ android {
     }
 
     buildTypes {
-        // Own app id, so a test APK from a PR installs next to the release app instead of replacing it
+        // Own app id, so a test build installs next to the release app instead of replacing it
         // (different signing key) and keeps its own orders and menu.
         debug {
             applicationIdSuffix = ".debug"
@@ -53,7 +53,7 @@ android {
                 "proguard-rules.pro"
             )
         }
-        // Release build (R8) signed with the debug key, as a PR test APK: shows how smooth the real app
+        // Release build (R8) signed with the debug key, as a local test APK: shows how smooth the real app
         // runs, which the debug APK can't. Own app id, next to both the release and the debug app.
         create("preview") {
             initWith(getByName("release"))
