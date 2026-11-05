@@ -25,12 +25,14 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 
 - 🍕 **Vordefinierte Pizzen oder Eigenkreation**: Sauce und Beläge frei wählen
 - 🥖 **Teig-Zähler**: zeigt, wie viele Pizzen noch gehen, und nimmt bei 0 keine Bestellung mehr an
-- 🌱 **Vegan / Vegetarisch** wird aus den Zutaten erkannt und auf dem Ausdruck hervorgehoben
-- ⚠️ **Allergene** (Laktose, Nüsse, Gluten, Soja) werden je Zutat im Admin-Panel gepflegt, an Zutaten, Pizzen und in der Bestellliste angezeigt und auf dem Ausdruck hervorgehoben
-- 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name und Notiz für die Küche
+- 🌱 **Vegan / Vegetarisch** wird aus den Zutaten erkannt, in der Bestellliste angezeigt und auf dem Ausdruck hervorgehoben
+- ⚠️ **Allergene** (Laktose, Nüsse, Gluten, Soja) werden je Zutat im Admin-Panel gepflegt und beim Bestellen an Zutaten und Pizzen angezeigt
+- 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name, Uhrzeit und Notiz für die Küche
+- 🧾 **Bon auf dem Bildschirm**: Nach dem Bestellen läuft der Ausdruck auf dem Tablet so schnell ein wie aus dem Drucker
 - 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
+- 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
 - 🔒 **Admin-Panel** hinter einem Entsperrmuster, damit Gäste nicht im Menü herumspielen
 - ✈️ **Komplett offline**: kein Konto, kein Server, alle Daten bleiben auf dem Tablet
 
@@ -67,7 +69,7 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 
 ## 🔒 Admin-Panel
 
-Über das Admin-Symbol oben rechts öffnest du das Admin-Panel. Entsperrt wird es mit einem **„P“** als Muster, angefangen bei Punkt 4:
+Über das Schnellmenü oben rechts öffnest du das Admin-Panel. Entsperrt wird es mit einem **„P“** als Muster, angefangen bei Punkt 4:
 
 ```
  1 ─── 2     3
