@@ -220,18 +220,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val loaded = withContext(Dispatchers.IO) {
             runCatching { MenuFile.decode(resolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }) }
         }
-        // Keeps the dough for the same reason as resetMenu.
+        // The dough count isn't in the file: keep it, mid-party it's still what's in the fridge.
         loaded.onSuccess { imported -> updateMenu { imported.copy(dough = it.dough) } }
         _state.update { it.copy(menuFileMessage = if (loaded.isSuccess) "Menü geladen." else "Keine gültige Menü-Datei, das Menü bleibt unverändert.") }
     }
 
     private val resolver get() = getApplication<Application>().contentResolver
 
-    fun resetMenu() {
-        // The dough count isn't part of the menu: keep it, mid-party it's still what's in the fridge.
-        val newMenu = MenuConfig.Standard.menu.copy(dough = _state.value.menu.dough)
-        _state.update { it.copy(menu = newMenu) }
-        viewModelScope.launch { menuRepo.save(newMenu) }
+    /** Back to a fresh install: no orders, the standard menu without a dough count, the default print style. */
+    fun resetAll() {
+        _state.update { it.copy(orders = emptyList(), prints = emptyMap()) }
+        viewModelScope.launch { orderRepo.save(emptyList()) }
+        updateMenu { MenuConfig.Standard.menu }
+        setPrintStyle(PrintStyle.Receipt)
     }
 }
 

@@ -33,7 +33,7 @@ Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit
 _Avoid_: Unverträglichkeit, Allergie
 
 **Standard-Menü**:
-Das mitgelieferte Menü, auf das sich das Menü im Admin-Panel zurücksetzen lässt.
+Das mitgelieferte Menü, das nach „Alles zurücksetzen“ im Admin-Panel wieder gilt.
 
 ## Küche
 

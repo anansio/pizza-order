@@ -80,13 +80,14 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 Im Admin-Panel kannst du:
 
 - die **beliebtesten Pizzen** des Abends sehen
-- das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen anlegen und ändern), auf das Standard-Menü zurücksetzen oder in einer **Datei** sichern und wieder laden
+- das **Menü** bearbeiten (Saucen, Beläge, vordefinierte Pizzen anlegen und ändern) oder in einer **Datei** sichern und wieder laden
 - Zutaten für heute als **aus** markieren: Gäste können sie und Pizzen damit nicht mehr wählen, das Menü bleibt unverändert
 - eintragen, wie viele **Teiglinge** es heute gibt (ohne Eintrag wird nicht gezählt), und den Bestand um eins korrigieren
 - den **Bildschirm fixieren**, damit Home und Zurück gesperrt sind (gegen gezieltes Lösen hilft die PIN-Abfrage in den Android-Einstellungen)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
 - **QR-Links** für den Ausdruck pflegen
 - **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute, und „aus“ markierte Zutaten sind wieder da)
+- **alles zurücksetzen**: Bestellungen, Menü, Teig, QR-Links und Ausdruck-Design wie nach der Installation
 
 > [!NOTE]
 > Die Sperre soll nur neugierige Gäste fernhalten und ist keine echte Sicherheit.

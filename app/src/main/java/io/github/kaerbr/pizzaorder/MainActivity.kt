@@ -493,7 +493,7 @@ private fun SettingsScaffold(
             onSetAllergen    = vm::setAllergen,
             onSavePreset     = vm::savePreset,
             onRemovePreset   = vm::removePreset,
-            onResetMenu      = vm::resetMenu,
+            onResetAll       = vm::resetAll,
             onExportMenu     = onExportMenu,
             onImportMenu     = onImportMenu,
             menuFileMessage  = state.menuFileMessage,

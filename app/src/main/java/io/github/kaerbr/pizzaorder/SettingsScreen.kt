@@ -100,7 +100,7 @@ fun SettingsScreen(
     onSetAllergen: (name: String, Allergen, contained: Boolean) -> Unit,
     onSavePreset: (Pizza, replacing: String?) -> Unit,
     onRemovePreset: (String) -> Unit,
-    onResetMenu: () -> Unit,
+    onResetAll: () -> Unit,
     onExportMenu: () -> Unit,
     onImportMenu: () -> Unit,
     menuFileMessage: String?,
@@ -154,7 +154,7 @@ fun SettingsScreen(
             onConfirm = {
                 when (c) {
                     Confirm.ClearOrders -> onClearAllOrders()
-                    Confirm.ResetMenu -> onResetMenu()
+                    Confirm.ResetAll -> onResetAll()
                     Confirm.ImportMenu -> onImportMenu()
                 }
             },
@@ -211,7 +211,7 @@ fun SettingsScreen(
                         }
                         Section(title = "Gefahrenzone") {
                             DangerButton("Alle Bestellungen löschen", Icons.Default.Delete) { confirm = Confirm.ClearOrders }
-                            DangerButton("Standardmenü wiederherstellen", Icons.Default.Refresh) { confirm = Confirm.ResetMenu }
+                            DangerButton("Alles zurücksetzen", Icons.Default.Refresh) { confirm = Confirm.ResetAll }
                         }
                     }
 
@@ -389,7 +389,7 @@ private fun Diet.next() = Diet.entries[(ordinal + 1) % Diet.entries.size]
 
 private enum class Confirm(val title: String, val text: String, val action: String) {
     ClearOrders("Alle Bestellungen löschen?", "Auch Teig-Zähler und „Heute aus“ starten von vorn. Das kann nicht rückgängig gemacht werden.", "Löschen"),
-    ResetMenu("Standardmenü wiederherstellen?", "Saucen, Beläge, Pizzen und QR-Links werden ersetzt. Bestellungen bleiben erhalten.", "Wiederherstellen"),
+    ResetAll("Alles zurücksetzen?", "Bestellungen, Menü, Teig, QR-Links und Ausdruck-Design gehen auf den Auslieferungszustand zurück. Das kann nicht rückgängig gemacht werden.", "Zurücksetzen"),
     ImportMenu("Menü laden?", "Saucen, Beläge, Pizzen und QR-Links werden durch die Datei ersetzt. Bestellungen bleiben erhalten.", "Datei wählen"),
 }
 
