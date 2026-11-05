@@ -1,3 +1,39 @@
+# [1.9.0](https://github.com/kaerbr/[secure]/compare/v1.8.2...v1.9.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* Allergen-Legende zeigt nur noch, was auf dem Menü steht ([909a7db](https://github.com/kaerbr/[secure]/commit/909a7db1207031d30a8bdd866bdb8d5ad6a04fa3))
+* Bestellung nur noch über den Kreis als fertig markieren ([e36822c](https://github.com/kaerbr/[secure]/commit/e36822cd8e285c0f3883cc03283e94d4a3b4d960))
+* Eingaben der Gäste verändern den Ausdruck nicht mehr ([c08b05c](https://github.com/kaerbr/[secure]/commit/c08b05c39041f2c06453fc1813979200bd311b2d))
+* keine doppelten Namen bei vordefinierten Pizzen ([6b89055](https://github.com/kaerbr/[secure]/commit/6b89055dcbdfaae86b877dec8751a0606369825a))
+* Menü-Datei enthält auch Werte, die dem Standard entsprechen ([a535e4e](https://github.com/kaerbr/[secure]/commit/a535e4e78dd3099d83aa15b9b25b61c03309cd62))
+* offene Bestellungen stehen im Admin-Panel unter den Einstellungen ([4e0bee8](https://github.com/kaerbr/[secure]/commit/4e0bee82652141fb120d7de997c0a830c05ac45c))
+* simulierter Bon läuft so schnell ein wie der echte ([08be7b9](https://github.com/kaerbr/[secure]/commit/08be7b9a96adbcafe2af4cd6e8d2e01fbfde1f86))
+* Text zur Bildschirmfixierung verspricht nicht zu viel ([281dac2](https://github.com/kaerbr/[secure]/commit/281dac25a80a5e6155f192ca4619c963112fb800))
+* unlesbare Daten sichern, Schreibfehler stürzen nicht mehr ab ([d5329ce](https://github.com/kaerbr/[secure]/commit/d5329cef2aae33b2e1d54413dd6259154786c728))
+* verständliche Meldung, wenn der Drucker nicht erreichbar ist ([1ef594a](https://github.com/kaerbr/[secure]/commit/1ef594ab556bb608e924bc6276a964cf6c318b22))
+
+
+### Features
+
+* „Alles zurücksetzen“ statt „Standardmenü wiederherstellen“ ([079a0af](https://github.com/kaerbr/[secure]/commit/079a0afd430da28d6f6771e69c25b29d0593a257))
+* Allergene Gluten und Soja ([bbec176](https://github.com/kaerbr/[secure]/commit/bbec176f1922c4b43218e8b798948e1991913674))
+* Ausdruck zeigt keine Allergene mehr ([30df3ba](https://github.com/kaerbr/[secure]/commit/30df3ba6a5abb0996b5caeb64e6d473033c28930))
+* Ausdruck zeigt, wie viele Pizzen vor dem Gast dran sind ([67ac885](https://github.com/kaerbr/[secure]/commit/67ac8852c83dea2426903c8d5e4bbfd547468208))
+* beliebteste Pizzen im Admin-Panel ([49313da](https://github.com/kaerbr/[secure]/commit/49313dabc61b15b1b4848937c8f9915874fbaeb5))
+* Bestellübersicht zeigt keine Allergene mehr ([cd54103](https://github.com/kaerbr/[secure]/commit/cd54103243c9b22c315b2debefd424a1ea160276))
+* Bestellungen stornieren und Teig-Bestand korrigieren ([719df0f](https://github.com/kaerbr/[secure]/commit/719df0ff7f05dcccbe08afc9e88d7df59cebb24d))
+* Bildschirm im Admin-Panel fixieren ([067e11d](https://github.com/kaerbr/[secure]/commit/067e11dd421cd2c64dfc99ef89a552b090cfe353))
+* Bon zeigt nicht mehr, wie viele Pizzen vor dem Gast dran sind ([fea8312](https://github.com/kaerbr/[secure]/commit/fea831290bb7a99afcbfee81b867705850b828a0))
+* Menü in eine Datei sichern und daraus laden ([59587aa](https://github.com/kaerbr/[secure]/commit/59587aa4e22fe79771de931ad01c4d64b4adf728))
+* Name und Notiz nehmen keine Emojis an ([2b2157d](https://github.com/kaerbr/[secure]/commit/2b2157d613de3fdda14570676a7cb9c8b125074e))
+* nicht gedruckte Bestellungen deutlich melden ([52b505c](https://github.com/kaerbr/[secure]/commit/52b505c3e8432b376ec3ef0ba4fb4e31c69b0c94))
+* Notiz-Tastatur hat OK statt Enter ([fc8e17a](https://github.com/kaerbr/[secure]/commit/fc8e17a1148f52cd317005cbe47b5f0e1f6be436))
+* Stornieren im Admin-Panel entfernt ([e77ea6d](https://github.com/kaerbr/[secure]/commit/e77ea6dbea989eafe9fb555ee13ca28be55da27d))
+* vordefinierte Pizzen bearbeiten ([3fe6032](https://github.com/kaerbr/[secure]/commit/3fe6032de2103d930db105fda21f9be599a482ee))
+* Zutaten für heute als „aus“ markieren ([623abb8](https://github.com/kaerbr/[secure]/commit/623abb8faa68072d12aac0c683347bf176c80219))
+
 ## [1.8.2](https://github.com/kaerbr/[secure]/compare/v1.8.1...v1.8.2) (2026-11-04)
 
 
