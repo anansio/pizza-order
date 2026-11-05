@@ -64,7 +64,7 @@ class PrintoutTest {
         for (style in PrintStyle.entries) {
             val text = Printout.parse(style.format(order, FunLink("x", "https://example.org")))
                 .flatMap { it.segments }.filterIsInstance<TextSegment>().flatMap { it.runs }.joinToString("") { it.text }
-            assertTrue(style.name, "Anna" in text && "Funghi" in text && "LAKTOSE, NÜSSE" in text)
+            assertTrue(style.name, "Anna" in text && "Funghi" in text && "LAKTOSE" !in text)
             assertTrue(style.name, '<' !in text && "[L]" !in text && "[C]" !in text && "[R]" !in text)
         }
     }
