@@ -17,7 +17,7 @@ android {
         minSdk = 26
         targetSdk = 37
         // versionName is rewritten by semantic-release (.releaserc.yaml); versionCode follows it: 1.2.3 -> 10203.
-        versionName = "1.9.0"
+        versionName = "1.9.1"
         versionCode = versionName!!.split(".").fold(0) { code, part -> code * 100 + part.toInt() }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/kaerbr/[secure]/compare/v1.9.0...v1.9.1) (2026-11-05)
+
+
+### Performance Improvements
+
+* Ofen-Animation baut den Schieberegler nicht mehr jedes Bild neu auf ([4572554](https://github.com/kaerbr/[secure]/commit/45725542e9ea508260d279d9a855aac5b2b36d43))
+
 # [1.9.0](https://github.com/kaerbr/[secure]/compare/v1.8.2...v1.9.0) (2026-11-05)
 
 
