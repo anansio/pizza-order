@@ -324,22 +324,6 @@ internal fun AllergenMarks(allergens: Set<Allergen>, modifier: Modifier = Modifi
     }
 }
 
-/** The `.diet` pill's sibling for the order list: "ENTHÄLT LAKTOSE, NÜSSE"; nothing without allergens. */
-@Composable
-internal fun AllergenBadge(allergens: Set<Allergen>, modifier: Modifier = Modifier) {
-    if (allergens.isEmpty()) return
-    Row(
-        modifier.border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            "Enthält ${allergens.joinToString { it.label }}".uppercase(),
-            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 0.09.em,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-    }
-}
-
 // Allergen keys only for those somewhere on the menu: a "N = Nüsse" without any nuts is noise.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
