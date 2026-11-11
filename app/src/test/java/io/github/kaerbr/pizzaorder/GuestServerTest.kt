@@ -143,6 +143,80 @@ class GuestServerTest {
     }
 
     @Test
+    fun thePageRequiresASauceLikeTheKitchenDoes() {
+        // Der Server lehnt jede Pizza ohne Sauce ab (Rejection.NoSauce), das Tablet sagt "Erst Sauce wählen".
+        // Die Seite darf keine Eigenkreation anbieten, die die Küche danach ablehnt.
+        val html = pageHtml()
+
+        // Der Knopf hängt nur noch an der Sauce, nicht mehr an "Sauce leer *und* Belag leer".
+        val buy = html.substringAfter("function updateBuy()").substringBefore("}")
+        assertTrue("Sauce ist Pflicht für den Knopf", buy.contains("sauce === \"\";"))
+        assertFalse("Belag ersetzt keine Sauce", buy.contains("toppings.length === 0"))
+        assertTrue("Absenden nennt den Grund", html.contains("Bitte eine Sauce wählen."))
+        assertTrue("Dock nennt den Grund", html.contains("Erst Sauce wählen"))
+    }
+
+    @Test
+    fun thePageGivesUpOnAWiFiThatHangs() {
+        // Ohne Abort bleibt der Knopf gesperrt, bis der TCP-Stack aufgibt — Minuten, in denen der Gast nicht
+        // weiss, ob die Pizza unterwegs ist. Der Abbruch ist eine eigene Lage ("Tablet antwortet nicht"),
+        // nicht "kein WLAN": sonst sucht der Gast beim Router nach einem Fehler, der dort nicht ist.
+        val html = pageHtml()
+
+        assertTrue("Bestellung bricht ab", html.contains("SUBMIT_TIMEOUT_MS"))
+        assertTrue("Polling bricht ab", html.contains("POLL_TIMEOUT_MS"))
+        assertTrue("Abbruch erzeugt einen eigenen Fehler", html.contains("timeout.timeout = true"))
+        assertTrue("Meldung nennt das Tablet", html.contains("Das Tablet antwortet nicht."))
+        // Der Knopf muss in jedem Fall wieder frei werden: der Abschluss haengt am then(), nicht am catch().
+        assertTrue(html.contains(".then(function () {\n        busy = false;"))
+    }
+
+    @Test
+    fun allergenLettersAreExplainedOnThePhoneToo() {
+        // "L" im Chip war auf dem Handy eine Auskunft ohne Inhalt: `title` gibt es dort nicht, ein
+        // Fingertipp zeigt keinen Tooltip. Die Legende steht sichtbar unter dem Belag, und sie nennt nur,
+        // was in diesem Menü wirklich vorkommt (wie DietLegend auf dem Tablet).
+        val html = pageHtml()
+        assertTrue("Legende im Markup", html.contains("id=\"legend\""))
+        assertTrue("Legende wird gefuellt", html.contains("function renderLegend()"))
+        assertTrue("Legende nennt das Allergen", html.contains("\"Enthält \" + ALLERGEN_LABELS[a]"))
+        assertTrue("Marken an der Sauce", html.contains("allergenTags(s.allergens)"))
+        assertTrue("Marken am Belag", html.contains("allergenTags(t.allergens)"))
+        // Die Legende haengt unter beiden Listen, nicht zwischen ihnen: sonst wirkt sie wie eine dritte Zutat.
+        assertTrue(html.indexOf("id=\"legend\"") > html.indexOf("id=\"toppings\""))
+    }
+
+    /**
+     * `localStorage` wirft in Safari (privat, "Alle Cookies blockieren"), in Chrome bei gesperrten
+     * Website-Daten und in manchen WebViews. Ungesichert stirbt beim Lesen das Skript (leere Seite) und
+     * beim Schreiben der Erfolgszweig — die Kueche haette die Bestellung, das Handy zeigte "keine
+     * Verbindung", und der Gast bestellte ein zweites Mal.
+     */
+    @Test
+    fun thePageSurvivesAStorageThatThrows() {
+        val html = pageHtml()
+
+        // Genau ein Zugriff je Richtung, beide in einem try.
+        assertEquals("Ein Lesezugriff, gekapselt", 1, Regex("""localStorage\.getItem""").findAll(html).count())
+        assertEquals("Ein Schreibzugriff, gekapselt", 1, Regex("""localStorage\.setItem""").findAll(html).count())
+        assertTrue("Token faellt auf den Speicher der Sitzung zurueck", html.contains("var memoryToken"))
+        assertTrue("Lesen ist gesichert", html.contains("return memoryToken || \"\";"))
+
+        val read = html.substringAfter("function readToken()").substringBefore("function writeToken")
+        assertTrue("Lesen in try", read.contains("try {") && read.contains("catch (e)"))
+        val write = html.substringAfter("function writeToken").substringBefore("// Das eigene Geräte-Token")
+        assertTrue("Schreiben in try", write.contains("try {") && write.contains("catch (e)"))
+        // Der Erfolgszweig darf nicht am Speicher scheitern: die Bestellung ist dann schon in der Kueche.
+        assertTrue("Erfolgszweig schreibt ueber writeToken", !html.contains("localStorage.setItem(\"pizzaGuestToken\", token)"))
+    }
+
+    private fun pageHtml(): String {
+        val page = File("src/main/assets/guest/index.html")
+            .takeIf { it.exists() } ?: File("app/src/main/assets/guest/index.html")
+        return page.readText()
+    }
+
+    @Test
     fun thePageNeedsTheCodeAndThenArrives() = runBlocking {
         val port = start(service().also { it.load() })
 
@@ -415,6 +489,19 @@ class GuestServerTest {
         val refusal = json.decodeFromString(GuestRefusal.serializer(), answer.body)
         assertEquals("no_sauce", refusal.reason)
         assertTrue(refusal.message.contains("Sauce"))
+        assertTrue(printer.markups.isEmpty())
+    }
+
+    @Test
+    fun toppingsWithoutSauceAreRefusedToo() = runBlocking {
+        // The guest page used to let this through (sauce empty, toppings picked = "Eigenkreation" with cheese)
+        // and the kitchen answered NoSauce. The page now blocks it; the server stays the one that decides.
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body(sauce = "", toppings = listOf("Käse")))
+
+        assertEquals(400, answer.status)
+        assertEquals("no_sauce", json.decodeFromString(GuestRefusal.serializer(), answer.body).reason)
         assertTrue(printer.markups.isEmpty())
     }
 

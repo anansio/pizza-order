@@ -119,6 +119,13 @@
   }
   .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
   .chip[disabled] { opacity: .45; cursor: not-allowed; }
+  /* Die Allergen-Marke sitzt im Chip, nicht nur am Kartentitel: title gibt es auf dem Handy nicht. */
+  .chip .tag { margin-left: 7px; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
 
   .alert {
     display: flex; gap: 10px; margin-top: 18px; padding: 12px 14px;
@@ -217,6 +224,7 @@
       <section class="block">
         <div class="block-head"><span class="step" aria-hidden="true">04</span><h2>Belag</h2></div>
         <div class="chips" id="toppings" role="group" aria-label="Belag"></div>
+        <div class="legend" id="legend" hidden></div>
       </section>
 
       <section class="block">
@@ -282,14 +290,67 @@
   var toppings = [];
   var busy = false;
   var idemKey = null;
+  // ─── Speicher ────────────────────────────────────────────────────────────
+  // localStorage kann jederzeit werfen: Safari blockiert es im privaten Modus und bei "Alle Cookies
+  // blockieren", Chrome bei gesperrten Website-Daten, manche WebViews ganz. Ungesichert stirbt beim Lesen
+  // das ganze Skript (leere Seite) und beim Schreiben die Erfolgsmeldung — die Bestellung wäre in der Küche,
+  // das Handy zeigte aber "keine Verbindung" und der Gast bestellte ein zweites Mal. Ohne Speicher gilt das
+  // Token eben nur für diese Sitzung.
+  var memoryToken = null;
+
+  function readToken() {
+    try {
+      return localStorage.getItem("pizzaGuestToken") || "";
+    } catch (e) {
+      return memoryToken || "";
+    }
+  }
+
+  function writeToken(value) {
+    memoryToken = value;
+    try {
+      localStorage.setItem("pizzaGuestToken", value);
+    } catch (e) {
+      // Nur diese Sitzung: die Bestellung ist trotzdem angenommen, der Gast sieht sie bis zum Neuladen.
+    }
+  }
+
   // Das eigene Geräte-Token: der Server hängt es an jede Bestellung und gibt es beim Bestellen zurück.
   // Ohne es zeigt die Statusseite keine eigene Pizza — und niemals eine fremde.
-  var token = localStorage.getItem("pizzaGuestToken") || "";
+  var token = readToken();
   var statusTimer = null;
 
   // ─── Netz ────────────────────────────────────────────────────────────────
 
   function api(path) { return path + (path.indexOf("?") < 0 ? "?" : "&") + "k=" + encodeURIComponent(code); }
+
+  /**
+   * Ein hängendes WLAN bricht den Request ab, statt das Dock minutenlang auf "Sendet …" zu lassen: ohne
+   * Abort bleibt der Button gesperrt, bis der TCP-Stack aufgibt. Der Retry ist ohnehin sicher (Idempotency-Key).
+   */
+  function fetchWithTimeout(url, options, millis) {
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = null;
+    if (controller) {
+      timer = setTimeout(function () { controller.abort(); }, millis);
+      options.signal = controller.signal;
+    }
+    return fetch(url, options).then(
+      function (r) { if (timer) clearTimeout(timer); return r; },
+      function (e) {
+        if (timer) clearTimeout(timer);
+        if (!e || e.name !== "AbortError") throw e;
+        // Kein Netz und "Tablet antwortet nicht" sind für den Gast zwei verschiedene Lagen: einmal
+        // hilft WLAN suchen, einmal einfach nochmal drücken. Der Retry ist ohnehin sicher (Idempotency-Key).
+        var timeout = new Error("Das Tablet antwortet nicht. Bitte nochmal versuchen.");
+        timeout.timeout = true;
+        throw timeout;
+      }
+    );
+  }
+
+  var POLL_TIMEOUT_MS = 8000;
+  var SUBMIT_TIMEOUT_MS = 15000;
 
   /** Der Header, der dieses Handy benennt. Er entscheidet nur, was zurückkommt — nicht, wer bestellen darf. */
   function guestHeaders() {
@@ -297,7 +358,7 @@
   }
 
   function getJson(path) {
-    return fetch(api(path), { headers: { Accept: "application/json", ...guestHeaders() }, cache: "no-store" })
+    return fetchWithTimeout(api(path), { headers: { Accept: "application/json", ...guestHeaders() }, cache: "no-store" }, POLL_TIMEOUT_MS)
       .then(function (r) {
         if (r.status === 403) throw new Error("Kein Zugang. Bitte den QR-Code auf dem Tablet neu scannen.");
         if (r.status === 429) throw new Error("Zu viele Anfragen. Bitte kurz warten.");
@@ -332,6 +393,34 @@
       mark.title = "Enthält " + (ALLERGEN_LABELS[a] || a);
       return mark;
     });
+  }
+
+  /**
+   * Die Buchstaben auf den Karten sind auf dem Handy nicht erklärt: `title` erscheint dort nicht, ein
+   * Fingertipp zeigt keinen Tooltip. Deshalb steht die Auflösung einmal sichtbar unter den Zutaten — und
+   * zwar nur für die Allergene, die in diesem Menü überhaupt vorkommen (wie `DietLegend` auf dem Tablet).
+   */
+  function renderLegend() {
+    var box = $("legend");
+    box.replaceChildren();
+    if (!menu) {
+      box.hidden = true;
+      return;
+    }
+    var used = [];
+    (menu.sauces || []).concat(menu.toppings || []).concat(menu.presets || []).forEach(function (item) {
+      (item.allergens || []).forEach(function (a) {
+        if (used.indexOf(a) < 0) used.push(a);
+      });
+    });
+    Object.keys(ALLERGEN_LABELS).forEach(function (a) {
+      if (used.indexOf(a) < 0) return;
+      var entry = el("span");
+      entry.append(el("span", "tag", a.charAt(0)));
+      entry.append(el("span", "", "Enthält " + ALLERGEN_LABELS[a]));
+      box.append(entry);
+    });
+    box.hidden = used.length === 0;
   }
 
   function sameSet(a, b) {
@@ -415,6 +504,9 @@
       chip.type = "button";
       chip.disabled = isOut(s.name);
       chip.setAttribute("aria-pressed", String(s.name === sauce));
+      // Auch an der Zutat, nicht nur an der fertigen Pizza: bei "Eigenkreation" gibt es sonst keinen
+      // Hinweis, dass z. B. Käse Laktose enthält.
+      allergenTags(s.allergens).forEach(function (t) { chip.append(t); });
       chip.addEventListener("click", function () {
         sauce = sauce === s.name ? "" : s.name;
         clearRefusal();
@@ -431,6 +523,7 @@
       chip.type = "button";
       chip.disabled = isOut(t.name);
       chip.setAttribute("aria-pressed", String(on));
+      allergenTags(t.allergens).forEach(function (tag) { chip.append(tag); });
       chip.addEventListener("click", function () {
         toppings = on
           ? toppings.filter(function (name) { return name !== t.name; })
@@ -441,6 +534,7 @@
       list.append(chip);
     });
 
+    renderLegend();
     updateDock();
     updateClosed();
   }
@@ -449,18 +543,23 @@
     var picked = sauce !== "" || toppings.length > 0;
     $("sumLine").textContent = picked ? "1 × " + chosenName() : "Noch keine Pizza gewählt";
     // Wie die Beschreibung auf dem Tablet: Sauce, dann der Belag als Liste. "Tomate · Zwiebeln · Rucola"
-    // liest sich wie drei Saucen.
-    $("sumDetail").textContent = picked
-      ? (sauce ? sauce + " · " : "") + toppings.join(", ")
-      : "";
+    // liest sich wie drei Saucen. Fehlt die Sauce, sagt das Dock warum — ein grauer Knopf ohne Grund
+    // sieht nach einem Fehler der Seite aus.
+    $("sumDetail").textContent = !picked
+      ? ""
+      : sauce === ""
+        ? "Erst Sauce wählen"
+        : sauce + (toppings.length > 0 ? " · " + toppings.join(", ") : "");
     updateBuy();
   }
 
   function updateBuy() {
+    // Dieselbe Regel wie die Küche (OrderService: NoSauce) und wie das Tablet ("Erst Sauce wählen"):
+    // eine Pizza ohne Sauce wird abgelehnt, auch wenn Belag gewählt ist.
     $("buy").disabled = busy ||
       closedReason() !== null ||
       !$("name").value.trim() ||
-      (sauce === "" && toppings.length === 0);
+      sauce === "";
   }
 
   /** Was die Küche gerade gar nicht annimmt; null = bestellbar. */
@@ -504,6 +603,11 @@
       showRefusal("Bitte eine Pizza wählen.");
       return;
     }
+    // Der Server lehnt eine Pizza ohne Sauce ab (NoSauce); das hier erspart dem Gast die Runde.
+    if (sauce === "") {
+      showRefusal("Bitte eine Sauce wählen.");
+      return;
+    }
 
     busy = true;
     updateBuy();
@@ -511,7 +615,7 @@
     // Ein Retry ist eine Bestellung: derselbe Key bis zum Erfolg oder bis die Küche ablehnt.
     if (!idemKey) idemKey = "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-    fetch(api("/api/orders"), {
+    fetchWithTimeout(api("/api/orders"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": idemKey, ...guestHeaders() },
       body: JSON.stringify({
@@ -519,7 +623,7 @@
         note: $("note").value,
         pizza: { sauce: sauce, toppings: toppings }
       })
-    })
+    }, SUBMIT_TIMEOUT_MS)
       .then(function (r) {
         return r.json().catch(function () { return null; }).then(function (data) {
           return { status: r.status, data: data };
@@ -530,7 +634,7 @@
           // Auch beim Retry (200) steht das Token im Body: dasselbe Gerät, dieselbe Liste.
           if (answer.data && answer.data.token) {
             token = answer.data.token;
-            localStorage.setItem("pizzaGuestToken", token);
+            writeToken(token);
           }
           idemKey = null;
           resetForm();
@@ -548,9 +652,13 @@
         idemKey = null;
         refreshMenu();
       })
-      .catch(function () {
-        showRefusal("Keine Verbindung zum Tablet. Bist du noch im selben WLAN?");
-        connected(false);
+      .catch(function (e) {
+        // Ein Abbruch heißt: das Tablet hängt, nicht das WLAN. "Bist du noch im selben WLAN?" schickt den
+        // Gast dann auf die falsche Suche — und beim zweiten Blick in die Einstellungen ist die Pizza kalt.
+        showRefusal(e && e.timeout
+          ? e.message
+          : "Keine Verbindung zum Tablet. Bist du noch im selben WLAN?");
+        if (!e || !e.timeout) connected(false);
       })
       .then(function () {
         busy = false;
