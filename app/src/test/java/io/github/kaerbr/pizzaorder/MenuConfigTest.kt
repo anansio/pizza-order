@@ -101,6 +101,28 @@ class MenuConfigTest {
         assertEquals(true, DoughStock(0).isSoldOut)
     }
 
+    @Test
+    fun maxOpenOrdersIsSetAndLifted() {
+        assertEquals(6, menu.withMaxOpenOrders(6).maxOpenOrders)
+        assertNull(menu.withMaxOpenOrders(null).maxOpenOrders)
+        // Zero or negative would refuse every order; that is what the dough stock and "Heute aus" are for.
+        assertNull(menu.withMaxOpenOrders(0).maxOpenOrders)
+        assertNull(menu.withMaxOpenOrders(-2).maxOpenOrders)
+        // Old menu.json files have no such key and must stay unlimited.
+        assertNull(Json.decodeFromString(MenuConfig.serializer(), MenuFile.encode(menu)).maxOpenOrders)
+    }
+
+    // The guest page and an HTTP body can name anything; only what's on the menu tonight gets through.
+    @Test
+    fun unknownIngredientsAreNamedAndMenuOnesAreNot() {
+        assertEquals(emptyList<String>(), menu.unknownIngredientsOf(menu.presets.first()))
+
+        val invented = Pizza("Fantasie", Sauce("Ketchup"), Pizza.toppingsOf(listOf("Käse", "Ananas")))
+        assertEquals(listOf("Ketchup", "Ananas"), menu.unknownIngredientsOf(invented))
+        // A sauce used as a topping is unknown in that position, and the other way round.
+        assertEquals(listOf("Tomate"), menu.unknownIngredientsOf(Pizza("X", Sauce("Tomate"), Pizza.toppingsOf(listOf("Tomate")))))
+    }
+
     // Regression: the legend kept "Enthält Nüsse" after the last ingredient with nuts was deleted.
     @Test
     fun deletedIngredientsNoLongerCountAsAllergensInUse() {
@@ -127,7 +149,8 @@ class MenuConfigTest {
 
     @Test
     fun menuFileRoundTripsTheMenuButNotTonight() {
-        val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withAllergen("Käse", Allergen.SOY, true)
+        val tonight = menu.withDoughToday(5).withSoldOut("Rucola", true).withMaxOpenOrders(4)
+            .withAllergen("Käse", Allergen.SOY, true)
         val loaded = MenuFile.decode(MenuFile.encode(tonight))
         assertEquals(tonight.copy(dough = null, soldOut = emptySet()), loaded)
     }

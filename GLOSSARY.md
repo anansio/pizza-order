@@ -28,6 +28,10 @@ _Avoid_: Speisekarte, Konfiguration
 Eine Zutat, die für heute ausgegangen ist: Sie bleibt im Menü, aber Gäste können sie und vordefinierte Pizzen damit nicht wählen. „Alle Bestellungen löschen“ hebt das auf.
 _Avoid_: Ausverkauft (das sagt der Teig-Bestand)
 
+**Offene Bestellungen**:
+Die Bestellungen, die noch nicht fertig sind. Das Limit dafür steht im Admin-Panel unter „Annahme“: Ist es erreicht, lehnt die App weitere Bestellungen mit einer Meldung ab, statt sie anzunehmen. Ohne Eintrag gibt es kein Limit; der Teig-Bestand bleibt die harte Grenze.
+_Avoid_: Warteschlange (die ist die Reihenfolge, nicht die Grenze)
+
 **Allergen**:
 Ein Stoff, den eine Zutat enthält und auf den Gäste reagieren können (derzeit Laktose, Nüsse, Gluten und Soja). Wird je Zutat im Admin-Panel gepflegt; eine Pizza enthält alle Allergene ihrer Zutaten.
 _Avoid_: Unverträglichkeit, Allergie

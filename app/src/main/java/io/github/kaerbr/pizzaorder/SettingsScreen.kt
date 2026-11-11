@@ -107,6 +107,7 @@ fun SettingsScreen(
     menuFileMessage: String?,
     onSetDoughToday: (Int?) -> Unit,
     onAdjustDough: (Int) -> Unit,
+    onSetMaxOpenOrders: (Int?) -> Unit,
     onClearAllOrders: () -> Unit,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
@@ -205,6 +206,9 @@ fun SettingsScreen(
                         }
                         Section(title = "Teig") {
                             DoughSetting(menu.dough, onSetDoughToday, onAdjustDough)
+                        }
+                        Section(title = "Annahme") {
+                            OpenOrdersSetting(menu.maxOpenOrders, orders.count { !it.isDone() }, onSetMaxOpenOrders)
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
@@ -553,6 +557,47 @@ private fun DoughSetting(dough: DoughStock?, onSet: (Int?) -> Unit, onAdjust: (I
             Text("Bestand korrigieren", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { onAdjust(-1) }, enabled = !dough.isSoldOut, shape = RoundedCornerShape(10.dp)) { Text("−1") }
             OutlinedButton(onClick = { onAdjust(1) }, shape = RoundedCornerShape(10.dp)) { Text("+1") }
+        }
+    }
+}
+
+/**
+ * How many open orders are taken at once. The dough stock is the physical limit and stays the real one;
+ * this is the organisational one for a kitchen that can't keep up, and it only refuses, it never
+ * finishes anything for the kitchen.
+ */
+@Composable
+private fun OpenOrdersSetting(limit: Int?, open: Int, onSet: (Int?) -> Unit) {
+    var count by remember(limit) { mutableStateOf(limit?.toString().orEmpty()) }
+    val quantity = count.toIntOrNull()
+
+    Text(
+        when {
+            limit == null -> "Kein Limit: Es werden so viele Bestellungen angenommen, wie der Teig hergibt."
+            open >= limit -> "Limit erreicht: $open offene Bestellungen, weitere werden abgelehnt."
+            else -> "Noch ${limit - open} von $limit offenen Bestellungen möglich."
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (limit != null && open >= limit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AppTextField(
+            value = count,
+            onValueChange = { new -> count = new.filter(Char::isDigit).take(3) },
+            label = { Text("Offene Bestellungen") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = { onSet(quantity) },
+            enabled = quantity != null && quantity > 0,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(56.dp),
+        ) { Text("Setzen") }
+        if (limit != null) {
+            TextButton(onClick = { onSet(null) }) { Text("Kein Limit") }
         }
     }
 }

@@ -77,15 +77,17 @@ import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Allergen
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.MenuConfig
+import io.github.kaerbr.pizzaorder.NAME_MAX
+import io.github.kaerbr.pizzaorder.NOTE_MAX
 import io.github.kaerbr.pizzaorder.Pizza
+import io.github.kaerbr.pizzaorder.Placed
+import io.github.kaerbr.pizzaorder.Refused
 import io.github.kaerbr.pizzaorder.Sauce
+import io.github.kaerbr.pizzaorder.SubmitResult
 import io.github.kaerbr.pizzaorder.Topping
 import io.github.kaerbr.pizzaorder.printableOnly
 
 internal const val CUSTOM_NAME = "Eigenkreation"
-// Fits next to "Gast" on the 32-character printout line.
-private const val NAME_MAX = 24
-private const val NOTE_MAX = 160
 
 // The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
 // heading row is exactly as tall as the button so both centre on one line.
@@ -118,11 +120,14 @@ internal fun selectionChipBorder(selected: Boolean) = FilterChipDefaults.filterC
 @Composable
 fun OrderScreen(
     menu: MenuConfig,
-    onSubmit: (customer: String, pizza: Pizza, note: String, onPlaced: () -> Unit) -> Unit,
+    openOrders: Int,
+    onSubmit: (customer: String, pizza: Pizza, note: String, onResult: (SubmitResult) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var customer by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
+    // Set when the desk said no; cleared on the next edit, so a corrected order doesn't keep the old reason.
+    var refusal by rememberSaveable { mutableStateOf<String?>(null) }
 
     // CRITICAL: We store simple names to satisfy rememberSaveable (must be Parcelable/Primitive)
     // Starts empty: guests pick a pizza themselves instead of finding the first preset ticked.
@@ -163,7 +168,7 @@ fun OrderScreen(
                 Section("01", "Dein Name", headerHeight = QuickMenuSize) {
                     CompactTextField(
                         value = customer,
-                        onValueChange = { customer = it.printableOnly().take(NAME_MAX) },
+                        onValueChange = { customer = it.printableOnly().take(NAME_MAX); refusal = null },
                         placeholder = "z.B. Anna",
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -193,6 +198,7 @@ fun OrderScreen(
                             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { (name, desc, tileDiet, tileAllergens, available) ->
                                     PizzaCard(name, desc, tileDiet, tileAllergens, pizzaName == name, !soldOut && available, Modifier.weight(1f).fillMaxHeight().alpha(if (available) 1f else 0.45f)) {
+                                        refusal = null
                                         menu.presets.find { it.name == name }?.let { p ->
                                             sauceName = p.sauce.name; toppingNames = p.toppings.map { it.name }
                                         } ?: run { sauceName = ""; toppingNames = emptyList(); customPicked = true } // Eigenkreation: start empty
@@ -207,7 +213,7 @@ fun OrderScreen(
                 Section("03", "Sauce") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         menu.sauces.forEach { s ->
-                            Pill(s.name, s.name == sauceName, !soldOut, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name), out = s.name in menu.soldOut) { sauceName = s.name }
+                            Pill(s.name, s.name == sauceName, !soldOut, diet = menu.dietOf(s.name), allergens = menu.allergensOf(s.name), out = s.name in menu.soldOut) { sauceName = s.name; refusal = null }
                         }
                     }
                 }
@@ -217,6 +223,7 @@ fun OrderScreen(
                         menu.toppings.forEach { t ->
                             val selected = t.name in toppingNames
                             Pill(t.name, selected, !soldOut, if (selected) Icons.Default.Check else Icons.Default.Add, menu.dietOf(t.name), menu.allergensOf(t.name), out = t.name in menu.soldOut) {
+                                refusal = null
                                 toppingNames = if (selected) toppingNames - t.name else toppingNames + t.name
                             }
                         }
@@ -249,12 +256,21 @@ fun OrderScreen(
         // Dock: order summary + slide-to-order peel, pinned to the bottom. Page switch and settings
         // float top-right (MainActivity) and stay out of here.
         PeelDock(
-            DockOrder(customer, pizzaName, sauceName, toppingNames, soldOut),
+            DockOrder(
+                customer, pizzaName, sauceName, toppingNames, soldOut,
+                capacityFull = menu.maxOpenOrders?.let { openOrders >= it } ?: false,
+            ),
+            refusal = refusal,
             // Cleared only once the order is actually taken: a refusal keeps the input for another try.
             onSubmit = {
-                onSubmit(customer, current, note) {
-                    customer = ""; note = ""
-                    sauceName = ""; toppingNames = emptyList(); customPicked = false
+                onSubmit(customer, current, note) { result ->
+                    if (result is Placed) {
+                        customer = ""; note = ""
+                        sauceName = ""; toppingNames = emptyList(); customPicked = false
+                        refusal = null
+                    } else if (result is Refused) {
+                        refusal = result.reason.message
+                    }
                 }
             },
         )

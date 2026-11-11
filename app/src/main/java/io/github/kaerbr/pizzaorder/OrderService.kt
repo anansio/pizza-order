@@ -25,7 +25,45 @@ interface PrinterPort {
 }
 
 /** What a successful submit produced: the order, its printout, and the queue position at that moment. */
-data class Placed(val order: Order, val printout: String, val ordersAhead: Int)
+data class Placed(val order: Order, val printout: String, val ordersAhead: Int) : SubmitResult
+
+/** The other outcome: nothing was taken, and the guest gets a reason instead of a silent no. */
+data class Refused(val reason: Rejection) : SubmitResult
+
+sealed interface SubmitResult
+
+/**
+ * Why an order was refused. The [message] is what a guest reads, so it names the ingredient or the limit
+ * instead of repeating the rule.
+ */
+sealed interface Rejection {
+    val message: String
+
+    data object BlankName : Rejection {
+        override val message get() = "Bitte einen Namen eingeben."
+    }
+
+    data object NoDough : Rejection {
+        override val message get() = "Der Teig ist alle, für heute gibt es keine Pizza mehr."
+    }
+
+    data class SoldOut(val ingredients: List<String>) : Rejection {
+        override val message get() = "Heute aus: ${ingredients.joinToString()}. Bitte anders belegen."
+    }
+
+    data class UnknownIngredient(val names: List<String>) : Rejection {
+        override val message get() = "Nicht auf dem Menü: ${names.joinToString()}."
+    }
+
+    data class TooManyOpen(val limit: Int) : Rejection {
+        override val message get() = "Gerade sind schon $limit Bestellungen offen. Bitte in ein paar Minuten nochmal."
+    }
+}
+
+/** Guest fields are cut here rather than refused, the same as the form does; a long name still goes through. */
+// NAME_MAX fits next to "Gast" on the 32-character printout line.
+const val NAME_MAX = 24
+const val NOTE_MAX = 160
 
 /**
  * The order desk: order numbers, dough, print bookkeeping and the state every screen renders.
@@ -118,21 +156,39 @@ class OrderService(
 
     /**
      * Takes an order, its number and one dough ball in one step.
-     * @return what was placed, or null when refused: no name, or no dough left.
+     *
+     * This is the trust boundary: the Compose form and an HTTP thread both end up here, so every
+     * rule that keeps an unusable order off the kitchen screen is checked inside the lock. The menu checks
+     * and the write happen under the same mutex as the number and the dough, so a request can't be accepted
+     * against a menu that was replaced a moment ago.
      */
-    suspend fun submit(customer: String, pizza: Pizza, note: String): Placed? {
-        val placed = mutex.withLock {
+    suspend fun submit(customer: String, pizza: Pizza, note: String): SubmitResult {
+        val result = mutex.withLock {
             val current = _state.value
-            val cleanCustomer = customer.trim()
-            if (cleanCustomer.isEmpty()) return@withLock null
-            val menuAfter = current.menu.takeDough() ?: return@withLock null
+            val cleanCustomer = customer.trim().take(NAME_MAX)
+            if (cleanCustomer.isEmpty()) return@withLock Refused(Rejection.BlankName)
+
+            // Both belong to the current menu: a built-by-hand request may invent ingredients or use one
+            // that ran out tonight.
+            val unknown = current.menu.unknownIngredientsOf(pizza)
+            if (unknown.isNotEmpty()) return@withLock Refused(Rejection.UnknownIngredient(unknown))
+            val soldOut = current.menu.soldOutOf(pizza)
+            if (soldOut.isNotEmpty()) return@withLock Refused(Rejection.SoldOut(soldOut))
+
+            // takeDough() copies, it doesn't spend anything: the check can come before the limit and both
+            // refusals stay in one place. Dough gone ends the evening, so it outranks the temporary limit.
+            val menuAfter = current.menu.takeDough() ?: return@withLock Refused(Rejection.NoDough)
+            val limit = current.menu.maxOpenOrders
+            if (limit != null && current.orders.count { !it.isDone() } >= limit) {
+                return@withLock Refused(Rejection.TooManyOpen(limit))
+            }
 
             val order = Order(
                 id = nextId(current.orders),
                 number = nextNumber(current.orders),
                 customer = cleanCustomer,
                 pizza = pizza,
-                note = note.trim(),
+                note = note.trim().take(NOTE_MAX),
                 diet = current.menu.dietOf(pizza),
                 allergens = current.menu.allergensOf(pizza),
                 printed = false,
@@ -145,8 +201,9 @@ class OrderService(
             // Without a dough limit takeDough() hands back the very same menu: no write for an unchanged file.
             if (menuAfter != current.menu) menuStore.save(menuAfter)
             Placed(order, markup, order.ordersAheadIn(orders))
-        } ?: return null
+        }
 
+        val placed = result as? Placed ?: return result
         runPrint(placed.printout, placed.order.id)
         return placed
     }

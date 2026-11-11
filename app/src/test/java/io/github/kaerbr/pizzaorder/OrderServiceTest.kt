@@ -14,7 +14,6 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -75,6 +74,9 @@ class OrderServiceTest {
     private fun menu(): MenuConfig = Json { ignoreUnknownKeys = true }
         .decodeFromString(MenuConfig.serializer(), menuFile.readText())
 
+    /** The success case, for tests that aren't about a refusal. */
+    private fun SubmitResult.placed(): Placed = assertTrue(this is Placed).let { this as Placed }
+
     /** Printing runs beside the call; wait for it so a print's own save can't race the file read. */
     private suspend fun awaitPrints(count: Int) = withTimeout(5_000) {
         while (printer.markups.size < count) delay(10)
@@ -91,17 +93,17 @@ class OrderServiceTest {
         // Both start before either can finish: without one lock around number, dough and save, they read
         // the same state and one dough ball goes missing.
         val placed = listOf("Anna", "Bene").map { name ->
-            async(Dispatchers.Default) { service.submit(name, pizza(), "") }
+            async(Dispatchers.Default) { service.submit(name, pizza(), "").placed() }
         }.awaitAll()
 
         awaitPrints(2)
 
-        assertEquals(listOf(1, 2), placed.map { it!!.order.number }.sorted())
-        assertEquals(2, placed.map { it!!.order.id }.distinct().size)
+        assertEquals(listOf(1, 2), placed.map { it.order.number }.sorted())
+        assertEquals(2, placed.map { it.order.id }.distinct().size)
         assertEquals(8, service.state.value.menu.dough!!.available)
         // On disk as well, and the file agrees with the state.
         assertEquals(8, menu().dough!!.available)
-        assertEquals(placed.map { it!!.order.id }.sorted(), orders().map { it.id }.sorted())
+        assertEquals(placed.map { it.order.id }.sorted(), orders().map { it.id }.sorted())
     }
 
     // Without a dough limit takeDough() returns the menu unchanged: writing menu.json for every order was pure I/O.
@@ -110,7 +112,7 @@ class OrderServiceTest {
         val service = service()
         service.load()
 
-        service.submit("Anna", pizza(), "")!!
+        service.submit("Anna", pizza(), "").placed()
         awaitPrints(1)
 
         assertTrue(!menuFile.exists())
@@ -121,8 +123,8 @@ class OrderServiceTest {
         val service = service(MenuConfig.Standard.menu.withDoughToday(1))
         service.load()
 
-        assertTrue(service.submit("Anna", pizza(), "") != null)
-        assertNull(service.submit("Bene", pizza(), ""))
+        assertTrue(service.submit("Anna", pizza(), "") is Placed)
+        assertEquals(Refused(Rejection.NoDough), service.submit("Bene", pizza(), ""))
 
         awaitPrints(1)
 
@@ -138,7 +140,7 @@ class OrderServiceTest {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5))
         service.load()
 
-        assertNull(service.submit("   ", pizza(), ""))
+        assertEquals(Refused(Rejection.BlankName), service.submit("   ", pizza(), ""))
 
         awaitPrints(0)
         delay(200)
@@ -153,7 +155,7 @@ class OrderServiceTest {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5))
         service.load()
 
-        val placed = service.submit("  Anna  ", pizza(), "  ohne Oregano ")!!
+        val placed = service.submit("  Anna  ", pizza(), "  ohne Oregano ").placed()
         awaitPrints(1)
         // The markup is recorded inside print(); the bookkeeping save comes right after it.
         withTimeout(5_000) {
@@ -177,7 +179,7 @@ class OrderServiceTest {
     fun advanceWalksAnOrderThroughTheKitchenAndBack() = runBlocking {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5))
         service.load()
-        val order = service.submit("Anna", pizza(), "")!!.order
+        val order = service.submit("Anna", pizza(), "").placed().order
         awaitPrints(1)
         assertEquals(OrderStatus.QUEUED, service.state.value.orders.single().status)
 
@@ -237,7 +239,7 @@ class OrderServiceTest {
     fun clearAllStartsANewEvening() = runBlocking {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5).withSoldOut("Oliven", true))
         service.load()
-        service.submit("Anna", pizza(), "")!!
+        service.submit("Anna", pizza(), "").placed()
         awaitPrints(1)
         assertEquals(4, service.state.value.menu.dough!!.available)
 
@@ -248,5 +250,111 @@ class OrderServiceTest {
         // Dough back to tonight's count, what ran out available again.
         assertEquals(5, menu().dough!!.available)
         assertTrue(menu().soldOut.isEmpty())
+    }
+
+    // Clearing starts a new evening, but the limit is a rule for the kitchen, not something the evening used up.
+    @Test
+    fun clearAllKeepsTheOpenOrderLimit() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5).withMaxOpenOrders(2))
+        service.load()
+        service.submit("Anna", pizza(), "").placed()
+        awaitPrints(1)
+
+        service.clearAll()
+
+        assertEquals(2, menu().maxOpenOrders)
+        assertEquals(2, service.state.value.menu.maxOpenOrders)
+    }
+
+    // ─── S3: what the desk refuses, and that nothing is written for it ──────
+
+    /** Every refusal has the same side effect: no order, no dough gone, nothing on disk, no paper. */
+    private suspend fun assertRefused(service: OrderService, result: SubmitResult, reason: Rejection) {
+        assertEquals(Refused(reason), result)
+        assertTrue("Nichts darf geschrieben sein", !ordersFile.exists() || orders().isEmpty())
+        assertTrue("Kein Ausdruck", printer.markups.isEmpty())
+    }
+
+    @Test
+    fun anIngredientThatIsNotOnTheMenuIsRefused() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5))
+        service.load()
+
+        // Built by hand, as an HTTP request would: the form can't produce this.
+        val invented = Pizza("Fantasie", Sauce("Ketchup"), Pizza.toppingsOf(listOf("Käse", "Ananas")))
+        assertRefused(service, service.submit("Anna", invented, ""), Rejection.UnknownIngredient(listOf("Ketchup", "Ananas")))
+
+        assertEquals(5, service.state.value.menu.dough!!.available)
+    }
+
+    @Test
+    fun aSoldOutIngredientIsRefusedEvenOnAPreset() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5).withSoldOut("Käse", true))
+        service.load()
+
+        assertRefused(service, service.submit("Anna", pizza("Margherita"), ""), Rejection.SoldOut(listOf("Käse")))
+        assertEquals(5, service.state.value.menu.dough!!.available)
+    }
+
+    @Test
+    fun completedOrdersDoNotCountAgainstTheLimit() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5).withMaxOpenOrders(1))
+        service.load()
+
+        val first = service.submit("Anna", pizza(), "").placed()
+        assertEquals(Refused(Rejection.TooManyOpen(1)), service.submit("Bene", pizza(), ""))
+
+        // Working through the queue frees the slot again; nothing was refused for good.
+        service.advance(first.order)
+        service.advance(service.state.value.orders.single())
+        assertTrue(service.submit("Bene", pizza(), "") is Placed)
+        awaitPrints(2)
+    }
+
+    @Test
+    fun theLimitHoldsWhenTwoGuestsOrderAtTheSameMoment() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(10).withMaxOpenOrders(1))
+        service.load()
+
+        // Both read the same open count unless the check shares the lock with number and save.
+        val results = listOf("Anna", "Bene").map { name ->
+            async(Dispatchers.Default) { service.submit(name, pizza(), "") }
+        }.awaitAll()
+
+        assertEquals(1, results.count { it is Placed })
+        assertEquals(listOf(Refused(Rejection.TooManyOpen(1))), results.filterIsInstance<Refused>())
+        awaitPrints(1)
+        assertEquals(1, service.state.value.orders.size)
+        assertEquals(9, service.state.value.menu.dough!!.available)
+    }
+
+    // The form cuts guest input as it is typed; the desk must do the same, because an HTTP body skips the form.
+    @Test
+    fun longGuestFieldsAreCutNotRefused() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5))
+        service.load()
+
+        val placed = service.submit("A".repeat(40), pizza(), "B".repeat(400)).placed()
+
+        assertEquals(NAME_MAX, placed.order.customer.length)
+        assertEquals(NOTE_MAX, placed.order.note.length)
+        awaitPrints(1)
+    }
+
+    // Which reason a guest reads when several apply: the one they can do something about comes first.
+    @Test
+    fun theRefusalNamesTheMostUsefulReason() = runBlocking {
+        // An invented ingredient is refused before the dough is even looked at.
+        val invented = Pizza("X", Sauce("Ketchup"), Pizza.toppingsOf(emptyList()))
+        val noDough = service(MenuConfig.Standard.menu.withDoughToday(0))
+        noDough.load()
+        assertEquals(Refused(Rejection.UnknownIngredient(listOf("Ketchup"))), noDough.submit("Anna", invented, ""))
+
+        // Dough gone beats the temporary limit: the evening is over, not merely busy.
+        val bothLimits = service(MenuConfig.Standard.menu.withDoughToday(1).withMaxOpenOrders(1))
+        bothLimits.load()
+        bothLimits.submit("Anna", pizza(), "").placed()
+        assertEquals(Refused(Rejection.NoDough), bothLimits.submit("Bene", pizza(), ""))
+        awaitPrints(1)
     }
 }

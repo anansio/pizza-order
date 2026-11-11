@@ -13,7 +13,8 @@ object MenuFile {
         encodeDefaults = true
     }
 
-    // Dough and what ran out belong to tonight, not to the menu.
+    // Dough and what ran out belong to tonight, not to the menu. The open-order limit is a rule, not
+    // something the evening uses up, so it stays in the file with the menu.
     fun encode(menu: MenuConfig): String = json.encodeToString(MenuConfig.serializer(), menu.copy(dough = null, soldOut = emptySet()))
 
     /** @throws IllegalArgumentException on anything that isn't a usable menu. */
@@ -40,6 +41,8 @@ data class MenuConfig(
     val dough: DoughStock? = null,
     // Run out tonight, by name like [diets]. Not the same as deleting: that strips an ingredient from every preset for good.
     val soldOut: Set<String> = emptySet(),
+    // The organisational limit next to the physical one (dough): null = as many open orders as guests place.
+    val maxOpenOrders: Int? = null,
 ) {
     // Lists every problem at once, so one failure shows all typos. MenuConfigTest runs this on Standard.menu
     // before each debug build; a broken menu.json never gets here as a crash (JsonStore falls back to Standard.menu).
@@ -121,6 +124,15 @@ data class MenuConfig(
 
     /** Sets how many dough balls there are today and fills the stock to it; null lifts the limit. */
     fun withDoughToday(count: Int?) = copy(dough = count?.let { DoughStock(it.coerceAtLeast(0)) })
+
+    /** How many open orders the kitchen takes at once; null lifts the limit. */
+    fun withMaxOpenOrders(count: Int?) = copy(maxOpenOrders = count?.takeIf { it > 0 })
+
+    /** Ingredients of [pizza] that aren't on the menu at all; a request built by hand can invent them.
+     *  Checked by position: a sauce is only a sauce, a topping only a topping. */
+    fun unknownIngredientsOf(pizza: Pizza): List<String> =
+        listOfNotNull(pizza.sauce.name.takeIf { it.isNotBlank() && sauces.none { s -> s.name == it } }) +
+            pizza.toppings.map { it.name }.filter { name -> toppings.none { it.name == name } }
 
     /** One dough ball used up; null when sold out, so no order goes through without one. Unchanged without a limit. */
     fun takeDough(): MenuConfig? = when {

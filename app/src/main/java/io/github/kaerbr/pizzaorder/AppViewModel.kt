@@ -62,13 +62,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Orders ─────────────────────────────────────────────────────────────
 
-    /** @param onPlaced runs only when the order was taken, so a refusal does not wipe what the guest typed. */
-    fun submitOrder(customer: String, pizza: Pizza, note: String, onPlaced: () -> Unit) {
+    /**
+     * @param onResult runs on the main thread with what the desk decided: a refusal leaves the guest's input
+     *   in place, so the form is only cleared once [Placed] came back.
+     */
+    fun submitOrder(customer: String, pizza: Pizza, note: String, onResult: (SubmitResult) -> Unit) {
         viewModelScope.launch {
-            service.submit(customer, pizza, note)?.let {
-                _confirmation.value = Confirmation(it.order, it.printout)
-                onPlaced()
-            }
+            val result = service.submit(customer, pizza, note)
+            if (result is Placed) _confirmation.value = Confirmation(result.order, result.printout)
+            onResult(result)
         }
     }
 
@@ -134,6 +136,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun setDoughToday(count: Int?) = updateMenu { it.withDoughToday(count) }
 
     fun adjustDough(delta: Int) = updateMenu { it.adjustDough(delta) }
+
+    fun setMaxOpenOrders(count: Int?) = updateMenu { it.withMaxOpenOrders(count) }
 
     fun exportMenu(uri: Uri) = viewModelScope.launch {
         val menu = state.value.menu

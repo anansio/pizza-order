@@ -246,6 +246,8 @@ private fun MainScaffold(
                 when (page) {
                     0 -> OrderScreen(
                         menu = state.menu,
+                        // Derived here, not in the desk: the dock only needs to know whether sliding would be refused.
+                        openOrders = state.orders.count { !it.isDone() },
                         onSubmit = vm::submitOrder,
                     )
                     else -> OrdersListScreen(
@@ -503,6 +505,7 @@ private fun SettingsScaffold(
             menuFileMessage  = state.menuFileMessage,
             onSetDoughToday  = vm::setDoughToday,
             onAdjustDough    = vm::adjustDough,
+            onSetMaxOpenOrders = vm::setMaxOpenOrders,
             printStyle      = state.printStyle,
             onPrintStyle    = vm::setPrintStyle,
             onTestPrint      = { vm.testPrint() },

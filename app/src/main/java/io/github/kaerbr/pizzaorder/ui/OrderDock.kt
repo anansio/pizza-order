@@ -93,11 +93,14 @@ internal data class DockOrder(
     val sauce: String,
     val toppings: List<String>,
     val soldOut: Boolean,
+    /** The open-order limit is used up: the desk would refuse, so the guest gets told before sliding. */
+    val capacityFull: Boolean = false,
 ) {
-    // Required steps: name and sauce (no toppings is fine, Marinara-style).
+    // Required steps: name and sauce (no toppings is fine, Marinara-style). At the limit the pizza stays
+    // on the peel: sliding would only bounce off the desk, and the header says why.
     val hasName get() = customer.isNotBlank()
     val hasSauce get() = sauce.isNotBlank()
-    val complete get() = hasName && hasSauce && !soldOut
+    val complete get() = hasName && hasSauce && !soldOut && !capacityFull
 }
 
 // One slow ease for every state change in the dock, so filling in the form never snaps.
@@ -115,9 +118,17 @@ private val OvenSize = 68.dp
  * oven instead of tapping, so a stray touch at the party can't send a second ticket. Checks above the
  * track show what's still missing; pressing the pizza too early wiggles it and flashes that check.
  * Double tap and TalkBack's click also order, for anyone who can't drag.
+ *
+ * @param refusal why the last try was turned down, straight from the order desk: the dough ran out or the
+ *   limit was reached between picking and sliding, which the form can't know.
  */
 @Composable
-internal fun PeelDock(order: DockOrder, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PeelDock(
+    order: DockOrder,
+    refusal: String?,
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     // The pointer handlers outlive recompositions: without this they'd submit the name as it was when they started.
@@ -146,15 +157,19 @@ internal fun PeelDock(order: DockOrder, onSubmit: () -> Unit, modifier: Modifier
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
+                // A refusal from the desk outranks the summary: it's the answer to what was just tried.
                 when {
+                    refusal != null -> refusal
                     order.soldOut -> "Der Teig ist alle!"
+                    // A hint, not a refusal: the queue moves, so the guest waits a moment instead of sliding for nothing.
+                    order.capacityFull -> "Die Küche ist ausgelastet, gleich geht es weiter"
                     order.pizzaName == null -> "Noch keine Pizza gewählt"
                     !order.hasName -> order.pizzaName
                     else -> "${order.pizzaName} für ${order.customer.trim()}"
                 },
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize),
-                color = if (order.soldOut) colors.error else Color.Unspecified,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (order.soldOut || refusal != null) colors.error else Color.Unspecified,
+                maxLines = if (refusal != null || order.capacityFull) 2 else 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             // Only the first missing step flashes, so the eye goes straight to it. Sold out, no step helps.
@@ -249,6 +264,7 @@ private fun PeelTrack(order: DockOrder, wiggle: Float, onLocked: () -> Unit, onS
 
         val label = when {
             order.soldOut -> "Für heute leider keine Pizza mehr"
+            order.capacityFull -> "Gleich wieder, die Küche ist voll"
             !order.hasName -> "Erst Namen eingeben"
             !order.hasSauce -> "Erst Sauce wählen"
             else -> "Pizza in den Ofen schieben  ›››"
