@@ -7,7 +7,9 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -28,14 +30,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val service = OrderService(
         orderStore,
         menuStore,
-        object : PrinterPort {
-            override suspend fun print(markup: String): Result<Unit> = printer.print(markup)
-        },
+        printer,
         viewModelScope,
         printStyle = PrintStyle.entries.find { it.name == prefs.getString("printStyle", null) } ?: PrintStyle.Receipt,
     )
 
     val state: StateFlow<AppState> = service.state
+
+    // The confirmation belongs to the caller, not to the shared state: with guest orders arriving over HTTP,
+    // a single slot would let one guest's slip replace another's.
+    private val _confirmation = MutableStateFlow<Confirmation?>(null)
+    val confirmation: StateFlow<Confirmation?> = _confirmation.asStateFlow()
 
     init {
         viewModelScope.launch { service.load() }
@@ -57,15 +62,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Orders ─────────────────────────────────────────────────────────────
 
-    fun submitOrder(customer: String, pizza: Pizza, note: String) {
-        viewModelScope.launch { service.submit(customer, pizza, note) }
+    /** @param onPlaced runs only when the order was taken, so a refusal does not wipe what the guest typed. */
+    fun submitOrder(customer: String, pizza: Pizza, note: String, onPlaced: () -> Unit) {
+        viewModelScope.launch {
+            service.submit(customer, pizza, note)?.let {
+                _confirmation.value = Confirmation(it.order, it.printout)
+                onPlaced()
+            }
+        }
     }
 
-    fun dismissConfirmation() = service.dismissConfirmation()
+    fun dismissConfirmation() {
+        _confirmation.value = null
+    }
 
     fun reprint(order: Order) = service.reprint(order)
 
-    fun toggleDone(order: Order) {
+    /** One tap on the list: the next step (Wartet → Im Ofen → Fertig), and one step back. */
+    fun advanceOrder(order: Order) {
         viewModelScope.launch { service.advance(order) }
     }
 

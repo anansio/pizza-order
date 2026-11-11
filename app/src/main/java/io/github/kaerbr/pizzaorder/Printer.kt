@@ -26,7 +26,7 @@ import java.nio.charset.Charset
  * settings. selectFirstPaired() then picks it: the first paired printer it can
  * reach. Other paired devices don't count — fine for the single-printer party setup.
  */
-class Printer(private val context: Context) {
+class Printer(private val context: Context) : PrinterPort {
 
     // One printout at a time: an order plus a quick reprint would otherwise open two
     // Bluetooth connections at once and one of them fails.
@@ -36,7 +36,7 @@ class Printer(private val context: Context) {
      * @return Result.success on print, Result.failure with a user-facing German
      *         message on any failure (no permission, no printer, BT off, etc.).
      */
-    suspend fun print(markup: String): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
+    override suspend fun print(markup: String): Result<Unit> = mutex.withLock { withContext(Dispatchers.IO) {
         runCatching<Unit> {
             check(hasBluetoothPermission()) {
                 "Bluetooth-Berechtigung fehlt. In den App-Einstellungen erlauben."

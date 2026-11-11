@@ -48,6 +48,20 @@ class PrintoutTest {
         }
     }
 
+    // The queue is on the tablet screen, not on the paper: a reprint of an old slip would show a stale number.
+    @Test
+    fun statusAndQueueNeverReachThePaper() {
+        val order = Order(
+            number = 7, customer = "Anna", pizza = Pizza("Funghi", Sauce("Tomate"), Pizza.toppingsOf(emptyList())),
+            bakingAt = 1_000, completedAt = 2_000,
+        )
+        for (style in PrintStyle.entries) {
+            val text = Printout.parse(style.format(order, null))
+                .flatMap { it.segments }.filterIsInstance<TextSegment>().flatMap { it.runs }.joinToString("") { it.text }
+            assertTrue(style.name, listOf("Ofen", "Wartet", "vor dir", "Fertig", "fertig").none { it in text })
+        }
+    }
+
     @Test
     fun emojiAreDroppedUmlautsStay() {
         assertEquals("Jörg  extra scharf €", "Jörg 🍕 extra scharf €😋".printableOnly())

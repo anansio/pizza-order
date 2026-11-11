@@ -50,6 +50,9 @@ data class Pizza(
     }
 }
 
+/** How far the kitchen has come with an order; derived from [Order.bakingAt] and [Order.completedAt], never stored. */
+enum class OrderStatus(val label: String) { QUEUED("Wartet"), BAKING("Im Ofen"), READY("Fertig") }
+
 /** The most ordered pizzas with their counts, most popular first; Eigenkreationen count as one. */
 fun List<Order>.topPizzas(limit: Int = 3) =
     groupingBy { it.pizza.name }.eachCount().toList().sortedByDescending { it.second }.take(limit)
@@ -61,6 +64,9 @@ data class Order(
     val customer: String,
     val pizza: Pizza,
     val note: String = "",
+    // One timestamp per step instead of a status field: the status can't disagree with the kitchen's taps,
+    // and orders.json from before this field loads as QUEUED, which is what those orders already were.
+    val bakingAt: Long? = null,
     val completedAt: Long? = null,
     // Snapshot at order time, so later menu edits don't relabel what the kitchen already got.
     val diet: Diet = Diet.NONE,
@@ -70,7 +76,20 @@ data class Order(
     // for orders.json files from before this field: those orders are long past.
     val printed: Boolean = true,
 ) {
+    val status: OrderStatus get() = when {
+        completedAt != null -> OrderStatus.READY
+        bakingAt != null -> OrderStatus.BAKING
+        else -> OrderStatus.QUEUED
+    }
+
     fun isDone() = completedAt != null
     val formattedTime: String get() = SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(id))
     val formattedNumber: String get() = "#%03d".format(number)
 }
+
+/**
+ * How many open orders were placed before this one: the queue position minus one, so the guest sees "noch 2 vor dir".
+ *
+ * Computed, never stored: a counter would be wrong as soon as the kitchen finishes something out of order.
+ */
+fun Order.ordersAheadIn(orders: List<Order>): Int = orders.count { !it.isDone() && it.id < id }

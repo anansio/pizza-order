@@ -3,6 +3,7 @@ package io.github.kaerbr.pizzaorder.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,32 +45,41 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.Order
+import io.github.kaerbr.pizzaorder.OrderStatus
 import io.github.kaerbr.pizzaorder.PrintStatus
 import kotlinx.coroutines.delay
 
 @Composable
 fun OrdersListScreen(
     orders: List<Order>,
-    onToggleDone: (Order) -> Unit,
+    onAdvance: (Order) -> Unit,
     onReprint: (Order) -> Unit,
     modifier: Modifier = Modifier,
     prints: Map<Long, PrintStatus> = emptyMap(),
 ) {
     // "Alle löschen" lives in the locked admin panel, not here where guests can reach it.
-    val (done, pending) = orders.partition { it.isDone() }
+    val (waiting, baking, done) = Triple(
+        orders.filter { it.status == OrderStatus.QUEUED },
+        orders.filter { it.status == OrderStatus.BAKING },
+        orders.filter { it.status == OrderStatus.READY },
+    )
 
     // One clock for the whole board; minutes are all the waiting label shows.
     val now by produceState(System.currentTimeMillis()) {
         while (true) { delay(30_000); value = System.currentTimeMillis() }
     }
-    val sortedPending = pending.sortedBy { it.id }
+    // The two open groups run in the order they came in, the queue the guests see; done newest first.
+    val sortedWaiting = waiting.sortedBy { it.id }
+    val sortedBaking = baking.sortedBy { it.id }
     val sortedDone = done.sortedByDescending { it.completedAt }
     // After a restart only the flag is left: the reason lived in memory.
     val statusOf = { order: Order -> prints[order.id] ?: PrintStatus.Failed("Nicht gedruckt.").takeUnless { order.printed } }
@@ -82,15 +93,20 @@ fun OrdersListScreen(
         ) {
             if (orders.isEmpty()) item { EmptyState() }
 
-            if (sortedPending.isNotEmpty()) item { SectionRibbon("Offen (${sortedPending.size})", Modifier.animateItem()) }
-            items(sortedPending, key = { it.id }) { order ->
-                OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
+            if (sortedWaiting.isNotEmpty()) item { SectionRibbon("${OrderStatus.QUEUED.label} (${sortedWaiting.size})", Modifier.animateItem()) }
+            items(sortedWaiting, key = { it.id }) { order ->
+                OrderCard(order, now, { onAdvance(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
+            }
+
+            if (sortedBaking.isNotEmpty()) item { SectionRibbon("${OrderStatus.BAKING.label} (${sortedBaking.size})", Modifier.animateItem()) }
+            items(sortedBaking, key = { it.id }) { order ->
+                OrderCard(order, now, { onAdvance(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
             }
 
             if (sortedDone.isNotEmpty()) {
-                item { SectionRibbon("Fertig (${sortedDone.size})", Modifier.animateItem()) }
+                item { SectionRibbon("${OrderStatus.READY.label} (${sortedDone.size})", Modifier.animateItem()) }
                 items(sortedDone, key = { it.id }) { order ->
-                    OrderCard(order, now, { onToggleDone(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
+                    OrderCard(order, now, { onAdvance(order) }, { onReprint(order) }, statusOf(order), Modifier.animateItem())
                 }
             }
         }
@@ -101,24 +117,25 @@ fun OrdersListScreen(
 private fun OrderCard(
     order: Order,
     now: Long,
-    onToggleDone: () -> Unit,
+    onAdvance: () -> Unit,
     onReprint: () -> Unit,
     printStatus: PrintStatus?,
     modifier: Modifier = Modifier,
 ) {
+    val done = order.isDone()
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        shadowElevation = if (order.isDone()) 0.dp else 1.dp,
+        border = BorderStroke(1.dp, if (order.status == OrderStatus.BAKING) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+        shadowElevation = if (done) 0.dp else 1.dp,
     ) {
         Row(
-            Modifier.height(IntrinsicSize.Min).padding(horizontal = 18.dp, vertical = 16.dp).alpha(if (order.isDone()) 0.55f else 1f),
+            Modifier.height(IntrinsicSize.Min).padding(horizontal = 18.dp, vertical = 16.dp).alpha(if (done) 0.55f else 1f),
             verticalAlignment = Alignment.Top,
         ) {
-            // The only way to finish an order: guests reach this list, a stray tap on the card moved orders away.
-            DoneToggle(order.isDone(), onToggleDone)
+            // The only way to move an order along: guests reach this list, a stray tap on the card moved orders away.
+            StatusStep(order.status, onAdvance)
             Spacer(Modifier.width(2.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,25 +190,58 @@ private fun waitingLabel(order: Order, now: Long): String {
     return if (order.isDone() || minutes < 1) order.formattedTime else "${order.formattedTime} · $minutes min"
 }
 
-/** A 34dp circle in a 48dp touch target; the offset keeps the circle where the card's padding wants it. */
+/**
+ * Three states, one control: the circle says where the order stands, the label what the next tap does.
+ * The label is not decoration: with three states a bare tick would leave the kitchen guessing which one comes next.
+ * Screen readers get the current state instead of the next step, since the section ribbon is not part of the control.
+ */
 @Composable
-private fun DoneToggle(done: Boolean, onToggle: () -> Unit) {
-    val circle = Modifier.size(34.dp).clip(CircleShape).then(
-        if (done) Modifier.background(MaterialTheme.colorScheme.onTertiaryContainer)
-        else Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
-    )
-    Box(
+private fun StatusStep(status: OrderStatus, onAdvance: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val action = when (status) {
+        OrderStatus.QUEUED -> "In den Ofen"
+        OrderStatus.BAKING -> "Fertig"
+        OrderStatus.READY -> "Zurück"
+    }
+    val circle = when (status) {
+        OrderStatus.QUEUED -> Modifier.border(1.5.dp, colors.outline, CircleShape)
+        OrderStatus.BAKING -> Modifier.background(colors.primary, CircleShape)
+        OrderStatus.READY -> Modifier.background(colors.onTertiaryContainer, CircleShape)
+    }
+    val tint = when (status) {
+        OrderStatus.QUEUED -> colors.onSurfaceVariant
+        OrderStatus.BAKING -> colors.onPrimary
+        OrderStatus.READY -> colors.tertiaryContainer
+    }
+
+    Column(
         Modifier
+            .width(92.dp)
             .offset(x = (-7).dp, y = (-7).dp)
-            .size(48.dp)
-            .clip(CircleShape)
-            .toggleable(value = done, role = Role.Checkbox, onValueChange = { onToggle() })
-            .semantics { contentDescription = "Fertig" },
-        contentAlignment = Alignment.Center,
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(role = Role.Button, onClick = onAdvance)
+            .semantics { contentDescription = status.label }
+            .padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Box(circle, contentAlignment = Alignment.Center) {
-            if (done) Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(34.dp).clip(CircleShape).then(circle), contentAlignment = Alignment.Center) {
+            val icon = when (status) {
+                OrderStatus.QUEUED -> Icons.Outlined.LocalFireDepartment
+                OrderStatus.BAKING -> Icons.Default.Check
+                OrderStatus.READY -> Icons.Default.Undo
+            }
+            Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
         }
+        Text(
+            action,
+            modifier = Modifier.clearAndSetSemantics {},
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (status == OrderStatus.BAKING) colors.primary else colors.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

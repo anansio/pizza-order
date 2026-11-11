@@ -118,7 +118,7 @@ internal fun selectionChipBorder(selected: Boolean) = FilterChipDefaults.filterC
 @Composable
 fun OrderScreen(
     menu: MenuConfig,
-    onSubmit: (customer: String, pizza: Pizza, note: String) -> Unit,
+    onSubmit: (customer: String, pizza: Pizza, note: String, onPlaced: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var customer by rememberSaveable { mutableStateOf("") }
@@ -250,10 +250,12 @@ fun OrderScreen(
         // float top-right (MainActivity) and stay out of here.
         PeelDock(
             DockOrder(customer, pizzaName, sauceName, toppingNames, soldOut),
+            // Cleared only once the order is actually taken: a refusal keeps the input for another try.
             onSubmit = {
-                onSubmit(customer, current, note)
-                customer = ""; note = ""
-                sauceName = ""; toppingNames = emptyList(); customPicked = false
+                onSubmit(customer, current, note) {
+                    customer = ""; note = ""
+                    sauceName = ""; toppingNames = emptyList(); customPicked = false
+                }
             },
         )
     }

@@ -75,6 +75,7 @@ import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Order
+import io.github.kaerbr.pizzaorder.OrderStatus
 import io.github.kaerbr.pizzaorder.Pizza
 import io.github.kaerbr.pizzaorder.Sauce
 import io.github.kaerbr.pizzaorder.PrintStatus
@@ -182,10 +183,13 @@ fun SettingsScreen(
                     0 -> {
                         Section(title = "Heute") {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                val open = orders.count { !it.isDone() }
+                                val waiting = orders.count { it.status == OrderStatus.QUEUED }
+                                val baking = orders.count { it.status == OrderStatus.BAKING }
+                                val done = orders.count { it.status == OrderStatus.READY }
                                 StatTile("Bestellungen", orders.size, Modifier.weight(1f))
-                                StatTile("Offen", open, Modifier.weight(1f))
-                                StatTile("Fertig", orders.size - open, Modifier.weight(1f))
+                                StatTile(OrderStatus.QUEUED.label, waiting, Modifier.weight(1f))
+                                StatTile(OrderStatus.BAKING.label, baking, Modifier.weight(1f))
+                                StatTile(OrderStatus.READY.label, done, Modifier.weight(1f))
                                 StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
                             }
                         }

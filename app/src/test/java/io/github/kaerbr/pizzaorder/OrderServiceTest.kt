@@ -96,12 +96,24 @@ class OrderServiceTest {
 
         awaitPrints(2)
 
-        assertEquals(listOf(1, 2), placed.map { it!!.number }.sorted())
-        assertEquals(2, placed.map { it!!.id }.distinct().size)
+        assertEquals(listOf(1, 2), placed.map { it!!.order.number }.sorted())
+        assertEquals(2, placed.map { it!!.order.id }.distinct().size)
         assertEquals(8, service.state.value.menu.dough!!.available)
         // On disk as well, and the file agrees with the state.
         assertEquals(8, menu().dough!!.available)
-        assertEquals(placed.map { it!!.id }.sorted(), orders().map { it.id }.sorted())
+        assertEquals(placed.map { it!!.order.id }.sorted(), orders().map { it.id }.sorted())
+    }
+
+    // Without a dough limit takeDough() returns the menu unchanged: writing menu.json for every order was pure I/O.
+    @Test
+    fun anOrderWithoutADoughLimitDoesNotRewriteTheMenu() = runBlocking {
+        val service = service()
+        service.load()
+
+        service.submit("Anna", pizza(), "")!!
+        awaitPrints(1)
+
+        assertTrue(!menuFile.exists())
     }
 
     @Test
@@ -141,34 +153,68 @@ class OrderServiceTest {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5))
         service.load()
 
-        val order = service.submit("  Anna  ", pizza(), "  ohne Oregano ")!!
+        val placed = service.submit("  Anna  ", pizza(), "  ohne Oregano ")!!
         awaitPrints(1)
+        // The markup is recorded inside print(); the bookkeeping save comes right after it.
+        withTimeout(5_000) {
+            while (service.state.value.orders.single().printed.not()) delay(10)
+        }
+        val order = placed.order
 
         assertEquals("Anna", order.customer)
         assertEquals("ohne Oregano", order.note)
         assertTrue(!order.isDone())
         assertEquals(false, order.printed)
-        assertEquals(order, service.state.value.confirmation!!.order)
+        // The caller gets what to print and where the order stands, not a slot in the shared state.
+        assertTrue(placed.printout.isNotBlank())
+        assertEquals(0, placed.ordersAhead)
         // The print has meanwhile marked it on disk, which is the whole point of `printed`.
         assertEquals(service.state.value.orders.single(), orders().single())
         assertTrue(orders().single().printed)
     }
 
     @Test
-    fun advanceWalksAnOrderThereAndBack() = runBlocking {
+    fun advanceWalksAnOrderThroughTheKitchenAndBack() = runBlocking {
         val service = service(MenuConfig.Standard.menu.withDoughToday(5))
         service.load()
-        val order = service.submit("Anna", pizza(), "")!!
-
+        val order = service.submit("Anna", pizza(), "")!!.order
         awaitPrints(1)
-        service.advance(order)
-        assertTrue(service.state.value.orders.single().isDone())
-        assertTrue(orders().single().isDone())
+        assertEquals(OrderStatus.QUEUED, service.state.value.orders.single().status)
 
-        // Second tap undoes it: the list has one control, the kitchen must be able to take a tap back.
+        // Tap one: into the oven. Only the oven timestamp is set, nothing else.
+        service.advance(order)
+        val baking = service.state.value.orders.single()
+        assertEquals(OrderStatus.BAKING, baking.status)
+        assertTrue(baking.bakingAt != null && baking.completedAt == null)
+        assertEquals(OrderStatus.BAKING, orders().single().status)
+
+        // Tap two: out of the oven, done.
         service.advance(service.state.value.orders.single())
-        assertTrue(!service.state.value.orders.single().isDone())
-        assertTrue(!orders().single().isDone())
+        val done = service.state.value.orders.single()
+        assertEquals(OrderStatus.READY, done.status)
+        assertTrue(done.isDone() && done.bakingAt != null)
+        assertEquals(OrderStatus.READY, orders().single().status)
+
+        // Third tap takes back the "done", not the whole evening: the order is back in the oven with its
+        // baking time, so the guest never sees it fall out of the queue and the bake time stays measurable.
+        service.advance(service.state.value.orders.single())
+        val back = service.state.value.orders.single()
+        assertEquals(OrderStatus.BAKING, back.status)
+        assertEquals(baking.bakingAt, back.bakingAt)
+        assertTrue(back.bakingAt != null && back.completedAt == null)
+        assertEquals(OrderStatus.BAKING, orders().single().status)
+    }
+
+    // orders.json from before `bakingAt` existed: such an order is waiting, not in the oven by accident.
+    @Test
+    fun anOrderFromAnOlderFileStartsAsQueued() = runBlocking {
+        ordersFile.writeText(
+            """[{"id":1,"number":7,"customer":"Anna","pizza":{"name":"Margherita","sauce":{"name":"Tomate"},"toppings":[]}}]"""
+        )
+        val service = service()
+        service.load()
+
+        assertEquals(OrderStatus.QUEUED, service.state.value.orders.single().status)
     }
 
     // orders.json from before `printed` existed: those orders are long past and must not come back as

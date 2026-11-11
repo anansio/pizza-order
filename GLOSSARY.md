@@ -38,12 +38,16 @@ Das mitgelieferte Menü, das nach „Alles zurücksetzen“ im Admin-Panel wiede
 ## Küche
 
 **Bestellliste**:
-Die Übersicht aller Bestellungen, getrennt nach offen und fertig (Tab „Bestellungen“).
-_Avoid_: Warteschlange, Queue
+Die Übersicht aller Bestellungen, nach Status gruppiert (Tab „Bestellungen“).
+_Avoid_: Queue
 
-**Offen / Fertig**:
-Der Zustand einer Bestellung: offen, bis die Küche sie als fertig markiert.
-_Avoid_: Pending, erledigt
+**Warteschlange**:
+Die offenen Bestellungen in der Reihenfolge ihres Eingangs, also alles außer „Fertig“. Daraus ergibt sich die Position der Gäste („noch 2 vor dir“); die Zahl wird abgeleitet und nie gespeichert.
+_Avoid_: Queue
+
+**Wartet / Im Ofen / Fertig**:
+Der Zustand einer Bestellung, abgeleitet aus den Zeitstempeln, die die Küche mit einem Tippen setzt.
+_Avoid_: Offen, Pending, erledigt
 
 ## Drucken
 

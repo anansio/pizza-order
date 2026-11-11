@@ -3,8 +3,6 @@ package io.github.kaerbr.pizzaorder
 data class AppState(
     val orders: List<Order> = emptyList(),
     val menu: MenuConfig = MenuConfig.Standard.menu,
-    /** The order just placed, shown as the full-screen confirmation until dismissed. */
-    val confirmation: Confirmation? = null,
     /** Print state per order id ([TEST_PRINT_ID] for the test print); shown where the print was started. */
     val prints: Map<Long, PrintStatus> = emptyMap(),
     val printStyle: PrintStyle = PrintStyle.Receipt,

@@ -111,9 +111,17 @@ internal val PrintStatus?.icon: ImageVector
  * like out of the printer, drawn from the very markup the printer gets, so it looks like the paper one
  * whatever print style is set. It rolls back up on its own once the printer is done; a failed print
  * keeps it up until tapped.
+ *
+ * @param ordersAhead how many open orders came in before this one, derived from the list on every change.
+ *   Deliberately not on the slip: a reprint of an old slip would show a stale number.
  */
 @Composable
-fun OrderConfirmation(confirmation: Confirmation?, printStatus: PrintStatus?, onDismiss: () -> Unit) {
+fun OrderConfirmation(
+    confirmation: Confirmation?,
+    printStatus: PrintStatus?,
+    ordersAhead: Int?,
+    onDismiss: () -> Unit,
+) {
     // Keep the last one around so the slip still has content while it slides away.
     var shown by remember { mutableStateOf(confirmation) }
     if (confirmation != null) shown = confirmation
@@ -148,6 +156,8 @@ fun OrderConfirmation(confirmation: Confirmation?, printStatus: PrintStatus?, on
         ) {
             shown?.let { Slip(it.printout) }
             PrintLine(printStatus)
+            // Only while the confirmation is up: the number is derived, so it follows the list as the kitchen works.
+            if (confirmation != null) ordersAhead?.let { QueueLine(it) }
         }
     }
 }
@@ -275,6 +285,28 @@ private fun FakeQr(url: String, size: Dp, modifier: Modifier = Modifier) {
             drawRect(Ink, o + Offset(2 * cell, 2 * cell), Size(3 * cell, 3 * cell))
         }
     }
+}
+
+/**
+ * "Noch 2 vor dir" under the slip. The queue, not an ETA in minutes: a pizza evening is no delivery service,
+ * and a number that turns out wrong is worse than none.
+ */
+@Composable
+private fun QueueLine(ordersAhead: Int) {
+    val text = when (ordersAhead) {
+        0 -> "Du bist als Nächstes dran"
+        1 -> "Noch 1 Pizza vor dir"
+        else -> "Noch $ordersAhead Pizzen vor dir"
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = Color.White,
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+    )
 }
 
 /** Print state under the slip, on the scrim: the slip itself stays exactly the printout. */

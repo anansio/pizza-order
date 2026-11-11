@@ -24,6 +24,9 @@ interface PrinterPort {
     suspend fun print(markup: String): Result<Unit>
 }
 
+/** What a successful submit produced: the order, its printout, and the queue position at that moment. */
+data class Placed(val order: Order, val printout: String, val ordersAhead: Int)
+
 /**
  * The order desk: order numbers, dough, print bookkeeping and the state every screen renders.
  *
@@ -115,9 +118,9 @@ class OrderService(
 
     /**
      * Takes an order, its number and one dough ball in one step.
-     * @return the order, or null when refused: no name, or no dough left.
+     * @return what was placed, or null when refused: no name, or no dough left.
      */
-    suspend fun submit(customer: String, pizza: Pizza, note: String): Order? {
+    suspend fun submit(customer: String, pizza: Pizza, note: String): Placed? {
         val placed = mutex.withLock {
             val current = _state.value
             val cleanCustomer = customer.trim()
@@ -137,25 +140,32 @@ class OrderService(
             val markup = current.printStyle.format(order, current.menu.funLinks.randomOrNull())
             val orders = listOf(order) + current.orders
 
-            _state.value = current.copy(orders = orders, menu = menuAfter, confirmation = Confirmation(order, markup))
+            _state.value = current.copy(orders = orders, menu = menuAfter)
             orderStore.save(orders)
-            menuStore.save(menuAfter)
-            order to markup
+            // Without a dough limit takeDough() hands back the very same menu: no write for an unchanged file.
+            if (menuAfter != current.menu) menuStore.save(menuAfter)
+            Placed(order, markup, order.ordersAheadIn(orders))
         } ?: return null
 
-        runPrint(placed.second, placed.first.id)
-        return placed.first
+        runPrint(placed.printout, placed.order.id)
+        return placed
     }
 
-    fun dismissConfirmation() = _state.update { it.copy(confirmation = null) }
-
-    /** One tap on an order in the list: open ↔ fertig. */
+    /**
+     * One tap on an order in the list: Wartet → Im Ofen → Fertig, and one step back.
+     *
+     * The list has one control, so the kitchen must be able to take a stray tap back: on a finished order the
+     * tap undoes the last step instead of advancing. It goes back to "Im Ofen", not to "Wartet", so the guest
+     * never sees the order fall out of the queue and the baking time is not lost.
+     */
     suspend fun advance(order: Order) = mutex.withLock {
         val current = _state.value
-        val next = current.orders.map {
-            if (it.id == order.id) it.copy(completedAt = if (it.isDone()) null else System.currentTimeMillis())
-            else it
-        }
+        val now = System.currentTimeMillis()
+        val next = current.orders.map { if (it.id != order.id) it else when (it.status) {
+            OrderStatus.QUEUED -> it.copy(bakingAt = now)
+            OrderStatus.BAKING -> it.copy(completedAt = now)
+            OrderStatus.READY -> it.copy(completedAt = null)
+        } }
         _state.value = current.copy(orders = next)
         orderStore.save(next)
     }

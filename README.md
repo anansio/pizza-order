@@ -29,7 +29,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - ⚠️ **Allergene** (Laktose, Nüsse, Gluten, Soja) werden je Zutat im Admin-Panel gepflegt und beim Bestellen an Zutaten und Pizzen angezeigt
 - 🖨️ **Ausdruck per Bluetooth** auf günstigen 58-mm-Thermodruckern, mit Bestellnummer, Name, Uhrzeit und Notiz für die Küche
 - 🧾 **Bon auf dem Bildschirm**: Nach dem Bestellen läuft der Ausdruck auf dem Tablet so schnell ein wie aus dem Drucker
-- 📋 **Bestellliste** mit „Offen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
+- 📋 **Bestellliste** mit „Wartet“, „Im Ofen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
@@ -41,10 +41,10 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 ```mermaid
 flowchart LR
     A["🧑 Gast stellt am Tablet<br/>seine Pizza zusammen"] --> B["🖨️ Ausdruck kommt<br/>aus dem Drucker"]
-    A --> C["📋 Bestellliste:<br/>Offen"]
-    B --> D["👩‍🍳 Küche backt"]
+    A --> C["📋 Bestellliste:<br/>Wartet"]
+    B --> D["👩‍🍳 Küche backt:<br/>Im Ofen"]
+    C --> D
     D --> E["✅ In der Bestellliste<br/>als Fertig markieren"]
-    C --> E
 ```
 
 ## 🚀 Schnellstart

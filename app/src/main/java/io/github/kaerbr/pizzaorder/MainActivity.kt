@@ -224,6 +224,8 @@ private fun MainScaffold(
     vm: AppViewModel,
 ) {
     val scope = rememberCoroutineScope()
+    // Its own flow, not part of the shared state: guest orders over HTTP must not overwrite this slip.
+    val confirmation by vm.confirmation.collectAsStateWithLifecycle()
 
     // Tab counter shows pending orders only — that's the actionable
     // queue. Done orders are still in the list but already handled.
@@ -248,7 +250,7 @@ private fun MainScaffold(
                     )
                     else -> OrdersListScreen(
                         orders = state.orders,
-                        onToggleDone = vm::toggleDone,
+                        onAdvance = vm::advanceOrder,
                         onReprint = vm::reprint,
                         prints = state.prints,
                     )
@@ -264,8 +266,10 @@ private fun MainScaffold(
             )
             // Last child, so the slip and its scrim cover the quick menu too.
             OrderConfirmation(
-                confirmation = state.confirmation,
-                printStatus = state.confirmation?.let { state.prints[it.order.id] },
+                confirmation = confirmation,
+                printStatus = confirmation?.let { state.prints[it.order.id] },
+                // Derived from the list on every state change, so it counts down while the slip is up.
+                ordersAhead = confirmation?.order?.let { it.ordersAheadIn(state.orders) },
                 onDismiss = vm::dismissConfirmation,
             )
         }
