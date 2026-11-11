@@ -32,7 +32,7 @@ object GuestCard {
             |[L]Adresse[R]$address
             |[L]Code[R]<b>$code</b>
             |[C]
-            |[C]Gilt nur für diesen Abend.
+            |[C]Gilt bis zum neuen Code.
             |[C]
             |[L]
             |[L]

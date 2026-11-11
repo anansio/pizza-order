@@ -75,11 +75,14 @@ Der Gäste-Server ist standardmäßig **aus**. Im Admin-Panel unter „Gäste-Be
 
 Voraussetzung: Handy und Tablet im **selben WLAN**. Viele Gäste-WLANs trennen Geräte voneinander (Client Isolation); dann funktioniert es nicht, und das Tablet als **Hotspot** ist der Weg daran vorbei.
 
+Der Code bleibt gültig, bis du im Admin-Panel **„Neuer Code“** drückst — auch über einen Neustart der App hinweg. Ein einmal gedruckter QR-Bon gilt also weiter, bis du ihn bewusst ersetzt; das ist gewollt, damit ein Gast nach einem Absturz weiterbestellen kann.
+
 Was die Gäste sehen:
 
 | | |
 |---|---|
 | **Menü** | Saucen, Beläge, vordefinierte Pizzen; ausverkaufte Zutaten und der Teig-Bestand kommen vom Tablet |
+| **Allergene** | Buchstaben-Marken an Pizza und Zutat, darunter die Auflösung („Enthält Laktose“) — nur für Allergene, die im aktuellen Menü vorkommen |
 | **Eigene Bestellung** | Nummer, Pizza und Status der eigenen Bestellung, aktualisiert sich von selbst |
 | **Warteschlange** | Nur die Zahl: „Noch 2 Pizzen vor dir · 4 offene Bestellungen“ |
 

@@ -50,6 +50,16 @@ class GuestCardTest {
     }
 
     @Test
+    fun theCardDoesNotPromiseAnExpiryTheCodeDoesNotHave() {
+        // The code is kept in preferences across restarts (yesterday's QR still works), so "nur für diesen
+        // Abend" was a promise the app never kept. The card now names the lever that really ends it.
+        val text = textOf()
+
+        assertTrue(text, "Abend" !in text)
+        assertTrue("The card has to say when it stops working", "code" in text.lowercase())
+    }
+
+    @Test
     fun aChangedAddressOrCodeChangesTheCard() {
         val other = GuestCard.format(LocalAddress.url("10.0.0.7", 9090, "zzz999"))
 

@@ -253,6 +253,21 @@ class GuestHost(
         _runtime.value = _runtime.value.copy(code = settings.code)
     }
 
+    /**
+     * The system refused the foreground start itself, so nothing ever reached [start]: missing notification
+     * permission, or a `dataSync` budget the system has already spent. Same rule as a failed bind — the
+     * switch goes off and keeps the reason, otherwise the panel offers "ausschalten" for a server that is
+     * not there and every app start retries the same refusal.
+     */
+    fun markStartRefused(cause: Throwable) = synchronized(lock) {
+        stopLocked()
+        settings.enabled = false
+        _runtime.value = _runtime.value.copy(
+            enabled = false,
+            status = GuestStatus.Failed("Start im Hintergrund verweigert: ${cause.message ?: cause.javaClass.simpleName}"),
+        )
+    }
+
     private fun stopLocked() {
         runCatching { server?.stop() }
         server = null

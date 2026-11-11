@@ -210,6 +210,32 @@ class GuestServerTest {
         assertTrue("Erfolgszweig schreibt ueber writeToken", !html.contains("localStorage.setItem(\"pizzaGuestToken\", token)"))
     }
 
+    /**
+     * Der Admin kann den Code rotieren, waehrend ein Gast die Seite offen hat. `admit` antwortet dann mit
+     * `403` und `text/plain`, also ohne `message`-Feld — der Sammelsatz "Bitte nochmal" schickt den Gast in
+     * eine Schleife, in der nur ein neuer QR-Code hilft. Der Bestellpfad muss den Grund nennen, wie der
+     * Menue-Abruf es schon tut.
+     */
+    @Test
+    fun thePageNamesARotatedCodeOnTheOrderPathToo() {
+        val html = pageHtml()
+
+        assertTrue(
+            "Bestellpfad kennt 403",
+            html.contains("""if (answer.status === 403) {"""),
+        )
+        assertTrue(
+            "nennt den QR-Code als Ausweg",
+            html.contains("""showRefusal("Kein Zugang. Bitte den QR-Code auf dem Tablet neu scannen.")"""),
+        )
+        // Dieselbe Meldung wie im Menue-Abruf: zwei verschiedene Saetze fuer eine Lage waeren ein Fehler.
+        assertEquals(
+            "eine Formulierung fuer 403",
+            2,
+            Regex("""Kein Zugang\. Bitte den QR-Code auf dem Tablet neu scannen\.?""").findAll(html).count(),
+        )
+    }
+
     private fun pageHtml(): String {
         val page = File("src/main/assets/guest/index.html")
             .takeIf { it.exists() } ?: File("app/src/main/assets/guest/index.html")

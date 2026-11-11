@@ -55,6 +55,20 @@ class GuestService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Android 15+ gibt einem `dataSync`-Dienst rund sechs Stunden im Hintergrund; danach ruft das System
+     * das hier auf und will, dass der Dienst selbst aufhört. Ohne `stopSelf` wirft es eine
+     * `RemoteServiceException`. Der Abend ist dann ohnehin vorbei, und der nächste App-Start holt den
+     * Server über `AppViewModel` zurück — die Einstellung bleibt "an", damit das passiert.
+     */
+    override fun onTimeout(startId: Int) {
+        stopSelf(startId)
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopSelf(startId)
+    }
+
     /** Android 14 wants the type at start time as well as in the manifest. */
     private fun startInForeground(notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

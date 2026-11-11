@@ -647,6 +647,14 @@
           showRefusal("Zu viele Anfragen. Bitte kurz warten.");
           return;
         }
+        // 403 heißt: der Code auf dem Tablet ist neu, nicht das WLAN kaputt. Ohne diesen Zweig liest der
+        // Gast „Bitte nochmal“ und drückt endlos auf einen Code, der nie wieder aufgeht — dabei kam diese
+        // Antwort als Text, nicht als JSON, also gab es keine message. Dieselbe Meldung wie beim Menü-Abruf.
+        if (answer.status === 403) {
+          showRefusal("Kein Zugang. Bitte den QR-Code auf dem Tablet neu scannen.");
+          idemKey = null;
+          return;
+        }
         showRefusal((answer.data && answer.data.message) || "Das hat nicht geklappt. Bitte nochmal.");
         // Eine Ablehnung ist keine offene Bestellung: der nächste Versuch bekommt einen neuen Key.
         idemKey = null;

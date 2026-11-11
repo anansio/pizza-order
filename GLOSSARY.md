@@ -13,7 +13,7 @@ Eine Bestellung, die ein Gast vom eigenen Handy über die Gastseite aufgegeben h
 _Avoid_: Online-Bestellung, Handy-Bestellung
 
 **Geräte-Token**:
-Der Schlüssel, den ein Handy beim ersten Bestellen bekommt und im Browser speichert (32 Hex-Zeichen, zufällig). Er entscheidet, welche Bestellungen die Statusseite zeigt: die eigenen. Er ist kein Zugangscode — ohne ihn bestellt man genauso, sieht danach nur keine fremde Pizza.
+Der Schlüssel, den ein Handy beim ersten Bestellen bekommt und im Browser speichert (32 Hex-Zeichen, zufällig). Er entscheidet, welche Bestellungen die Statusseite zeigt: die eigenen. Er ist kein Zugangscode — ohne ihn bestellt man genauso, sieht danach nur keine fremde Pizza. Blockiert der Browser den Speicher (privater Modus, gesperrte Website-Daten), gilt das Token nur für die Sitzung: die Bestellung geht trotzdem durch, nach einem Neuladen ist die eigene Pizza aber nicht mehr zugeordnet.
 _Avoid_: Session, Login, Gast-ID
 
 **Bestellung**:

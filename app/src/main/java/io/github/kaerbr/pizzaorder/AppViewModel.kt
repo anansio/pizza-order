@@ -40,7 +40,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             // On by the admin's choice before the app was closed: without this the switch would read "an"
             // while nothing listens. The service is asked for from the foreground, which is where Android
             // allows a dataSync start.
-            if (desk.guestSettings.enabled) GuestService.setEnabled(getApplication(), true)
+            if (desk.guestSettings.enabled) {
+                // A start can be refused outright (missing notification permission, a dataSync budget the
+                // system already spent). That must not take the app down with it on launch: the panel then
+                // shows "Aus" with the reason, and the admin can switch it on again.
+                runCatching { GuestService.setEnabled(getApplication(), true) }
+                    .onFailure { desk.guest.markStartRefused(it) }
+            }
         }
     }
 
