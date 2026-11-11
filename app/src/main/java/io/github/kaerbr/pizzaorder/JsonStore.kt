@@ -33,6 +33,10 @@ class JsonStore<T>(
     private val mutex = Mutex()
     private val json = Json {
         ignoreUnknownKeys = true
+        // Every field, defaults included: [Order.id] defaults to System.currentTimeMillis(), and a default
+        // that is re-evaluated would be dropped from the file and replaced at load time — two orders loaded
+        // in the same millisecond would then share an id, and one "Weiter" tap would advance both.
+        encodeDefaults = true
         prettyPrint = pretty
     }
 

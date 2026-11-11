@@ -2,6 +2,8 @@ package io.github.kaerbr.pizzaorder.ui
 
 import android.app.ActivityManager
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -70,9 +73,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kaerbr.pizzaorder.Allergen
+import io.github.kaerbr.pizzaorder.CUSTOM_NAME
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
+import io.github.kaerbr.pizzaorder.GuestRuntime
+import io.github.kaerbr.pizzaorder.GuestStatus
+import io.github.kaerbr.pizzaorder.LocalNetworkPermission
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.Order
 import io.github.kaerbr.pizzaorder.OrderStatus
@@ -109,6 +116,10 @@ fun SettingsScreen(
     onAdjustDough: (Int) -> Unit,
     onSetMaxOpenOrders: (Int?) -> Unit,
     onClearAllOrders: () -> Unit,
+    guest: GuestRuntime,
+    onSetGuestEnabled: (Boolean) -> Unit,
+    onSetGuestPort: (Int) -> Unit,
+    onNewGuestCode: () -> Unit,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
@@ -208,7 +219,15 @@ fun SettingsScreen(
                             DoughSetting(menu.dough, onSetDoughToday, onAdjustDough)
                         }
                         Section(title = "Annahme") {
-                            OpenOrdersSetting(menu.maxOpenOrders, orders.count { !it.isDone() }, onSetMaxOpenOrders)
+                            OpenOrdersSetting(menu.openOrderLimit, orders.count { !it.isDone() }, onSetMaxOpenOrders)
+                        }
+                        Section(title = "Gäste-Bestellung") {
+                            GuestSetting(
+                                guest = guest,
+                                onEnabled = onSetGuestEnabled,
+                                onPort = onSetGuestPort,
+                                onNewCode = onNewGuestCode,
+                            )
                         }
                         Section(title = "Drucker") {
                             Text("Ausdruck-Design: ${printStyle.label}", style = MaterialTheme.typography.bodyLarge)
@@ -603,6 +622,117 @@ private fun OpenOrdersSetting(limit: Int?, open: Int, onSet: (Int?) -> Unit) {
 }
 
 // ─── Section building blocks ───────────────────────────────────────────────
+
+/**
+ * The switch for the guest server: on/off, port, join code.
+ *
+ * The QR code and the tablet's address come in S6; until then this section names the address by hand, so a
+ * guest can already type it in. Only the admin sees this — the code is exactly what keeps a neighbour out.
+ */
+@Composable
+private fun GuestSetting(
+    guest: GuestRuntime,
+    onEnabled: (Boolean) -> Unit,
+    onPort: (Int) -> Unit,
+    onNewCode: () -> Unit,
+) {
+    var port by remember(guest.port) { mutableStateOf(guest.port.toString()) }
+    var confirmNewCode by remember { mutableStateOf(false) }
+    val parsedPort = port.toIntOrNull()?.takeIf { it in 1024..65535 }
+
+    val context = LocalContext.current
+    var missingPermission by remember { mutableStateOf(LocalNetworkPermission.isMissing(context)) }
+    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        missingPermission = !granted
+        // Granted: finish what the switch was asked to do. Denied: the panel says so, and the switch stays off.
+        if (granted) onEnabled(true)
+    }
+
+    if (confirmNewCode) {
+        DangerDialog(
+            title = "Neuen Code erzeugen?",
+            text = "Jeder QR-Code und jede Adresse, die schon draußen ist, funktioniert danach nicht mehr.",
+            action = "Neu erzeugen",
+            onConfirm = { onNewCode(); confirmNewCode = false },
+            onDismiss = { confirmNewCode = false },
+        )
+    }
+
+    Text(
+        when (val status = guest.status) {
+            GuestStatus.Off -> "Aus: Gäste können nur am Tablet bestellen."
+            GuestStatus.Starting -> "Startet …"
+            is GuestStatus.Running -> "Läuft auf Port ${status.port}. Gäste im selben WLAN können bestellen."
+            is GuestStatus.Failed -> status.message
+        },
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (guest.status is GuestStatus.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+        "Der Server bleibt aus dem Internet unerreichbar: er hört nur im lokalen Netz. " +
+            "Reicht das WLAN die Geräte nicht durch (Gäste-WLAN), hilft ein Hotspot am Tablet.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (missingPermission) {
+        // Android 17 blocks LAN traffic — inbound included — until this is granted, and it does so silently:
+        // the server would report "läuft" while every phone times out. So: say it, and ask for it.
+        Text(
+            "Android erlaubt Apps im lokalen Netz nur mit dieser Berechtigung. Ohne sie startet der Server, " +
+                "aber kein Handy kommt durch.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        OutlinedButton(
+            onClick = { askPermission.launch(LocalNetworkPermission.name) },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Zugriff auf lokales Netz erlauben") }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AppTextField(
+            value = port,
+            onValueChange = { new -> port = new.filter(Char::isDigit).take(5) },
+            label = { Text("Port") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = { parsedPort?.let(onPort) },
+            enabled = parsedPort != null && parsedPort != guest.port && guest.enabled,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(56.dp),
+        ) { Text("Setzen") }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { onEnabled(!guest.enabled) },
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.weight(1f).height(56.dp),
+        ) { Text(if (guest.enabled) "Server ausschalten" else "Server einschalten") }
+        if (guest.enabled) {
+            OutlinedButton(onClick = { confirmNewCode = true }, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(56.dp)) {
+                Text("Neuer Code")
+            }
+        }
+    }
+
+    if (guest.enabled) {
+        // Nothing secret is on this screen that a guest standing at the tablet couldn't read anyway; the code's
+        // job is to keep phones *outside* the party out, not the person the admin handed the tablet to.
+        Text("Code: ${guest.code}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Adresse: http://<IP-des-Tablets>:${guest.port}/?k=${guest.code}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {

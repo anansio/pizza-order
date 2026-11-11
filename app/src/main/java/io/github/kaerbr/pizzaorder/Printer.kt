@@ -75,6 +75,10 @@ class Printer(private val context: Context) : PrinterPort {
 }
 
 private const val CHARSET = "windows-1252"
+
+/** The printer's codepage. Also used by the HTTP layer, which needs its own encoder (see [printableOnly]). */
+internal const val PRINT_CHARSET = CHARSET
+
 private val printerCharset = Charset.forName(CHARSET).newEncoder()
 
 /**
@@ -82,3 +86,10 @@ private val printerCharset = Charset.forName(CHARSET).newEncoder()
  * Android has no flag to hide the emoji key, so guest fields filter instead. Main thread only: the encoder isn't thread-safe.
  */
 internal fun String.printableOnly() = filter(printerCharset::canEncode)
+
+/**
+ * [printableOnly] for an HTTP thread: its own encoder, because the shared one above is not thread-safe.
+ * Same filter, same result.
+ */
+internal fun String.printableOnlyOffMainThread(): String =
+    filter(Charset.forName(PRINT_CHARSET).newEncoder()::canEncode)

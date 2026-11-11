@@ -7,6 +7,18 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
 
+    <!-- Gäste-Bestellung: INTERNET is what allows *listening* on a socket, not talking to a server. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17 (targetSdk 37) blocks LAN traffic, inbound included, until this is granted at runtime.
+         Without it the server starts and then silently never answers a phone. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <!-- The socket has to outlive the screen: without the foreground service the process may be killed. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Reading the tablet's own address for the QR code. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -24,6 +36,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Keeps the guest page reachable while the tablet is on the kitchen shelf with the screen off. -->
+        <service
+            android:name=".GuestService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 
 </manifest>

@@ -112,6 +112,15 @@ class MenuConfigTest {
         assertNull(Json.decodeFromString(MenuConfig.serializer(), MenuFile.encode(menu)).maxOpenOrders)
     }
 
+    // A hand-written or imported menu.json can carry 0; taking it literally would refuse every order.
+    @Test
+    fun aZeroLimitFromAFileMeansNoLimit() {
+        val zero = MenuFile.decode("""{"sauces":[{"name":"Tomate"}],"maxOpenOrders":0}""")
+        assertEquals(0, zero.maxOpenOrders)
+        assertNull(zero.openOrderLimit)
+        assertEquals(5, menu.withMaxOpenOrders(5).openOrderLimit)
+    }
+
     // The guest page and an HTTP body can name anything; only what's on the menu tonight gets through.
     @Test
     fun unknownIngredientsAreNamedAndMenuOnesAreNot() {

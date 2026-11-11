@@ -43,6 +43,10 @@ sealed interface Rejection {
         override val message get() = "Bitte einen Namen eingeben."
     }
 
+    data object NoSauce : Rejection {
+        override val message get() = "Bitte eine Sauce wählen."
+    }
+
     data object NoDough : Rejection {
         override val message get() = "Der Teig ist alle, für heute gibt es keine Pizza mehr."
     }
@@ -167,6 +171,9 @@ class OrderService(
             val current = _state.value
             val cleanCustomer = customer.trim().take(NAME_MAX)
             if (cleanCustomer.isEmpty()) return@withLock Refused(Rejection.BlankName)
+            // An empty sauce passes unknownIngredientsOf() because a blank name is skipped, and soldOutOf()
+            // filters it the same way: without this a hand-written POST prints a slip for a pizza with no sauce.
+            if (pizza.sauce.name.isBlank()) return@withLock Refused(Rejection.NoSauce)
 
             // Both belong to the current menu: a built-by-hand request may invent ingredients or use one
             // that ran out tonight.
@@ -178,7 +185,7 @@ class OrderService(
             // takeDough() copies, it doesn't spend anything: the check can come before the limit and both
             // refusals stay in one place. Dough gone ends the evening, so it outranks the temporary limit.
             val menuAfter = current.menu.takeDough() ?: return@withLock Refused(Rejection.NoDough)
-            val limit = current.menu.maxOpenOrders
+            val limit = current.menu.openOrderLimit
             if (limit != null && current.orders.count { !it.isDone() } >= limit) {
                 return@withLock Refused(Rejection.TooManyOpen(limit))
             }

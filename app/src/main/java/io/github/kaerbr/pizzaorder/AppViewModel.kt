@@ -1,9 +1,7 @@
 package io.github.kaerbr.pizzaorder
 
 import android.app.Application
-import android.content.Context
 import android.net.Uri
-import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -12,30 +10,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.builtins.ListSerializer
 
 /**
  * The Android half of the order desk: files, printer, preferences and the admin lock.
  * Everything that changes orders lives in [OrderService]; this delegates and keeps the Compose flow.
+ *
+ * The service comes from [OrderDesk], not from here: the HTTP server takes numbers and dough from the same
+ * instance, or two guests would get the same number again.
  */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val desk = OrderDesk.get(application)
 
-    private val orderStore = JsonStore(application, "orders.json", ListSerializer(Order.serializer()), emptyList())
-    private val menuStore = JsonStore(application, "menu.json", MenuConfig.serializer(), MenuConfig.Standard.menu, pretty = true)
-
-    private val printer = Printer(application)
-
-    private val service = OrderService(
-        orderStore,
-        menuStore,
-        printer,
-        viewModelScope,
-        printStyle = PrintStyle.entries.find { it.name == prefs.getString("printStyle", null) } ?: PrintStyle.Receipt,
-    )
+    private val service = desk.service
 
     val state: StateFlow<AppState> = service.state
+
+    /** Switch, port and join code of the guest server, plus where it stands right now. */
+    val guest: StateFlow<GuestRuntime> = desk.guest.runtime
 
     // The confirmation belongs to the caller, not to the shared state: with guest orders arriving over HTTP,
     // a single slot would let one guest's slip replace another's.
@@ -43,7 +35,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val confirmation: StateFlow<Confirmation?> = _confirmation.asStateFlow()
 
     init {
-        viewModelScope.launch { service.load() }
+        viewModelScope.launch {
+            desk.ensureLoaded()
+            // On by the admin's choice before the app was closed: without this the switch would read "an"
+            // while nothing listens. The service is asked for from the foreground, which is where Android
+            // allows a dataSync start.
+            if (desk.guestSettings.enabled) GuestService.setEnabled(getApplication(), true)
+        }
     }
 
     // ─── Admin lock ─────────────────────────────────────────────────────────
@@ -53,10 +51,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Ausdruck ───────────────────────────────────────────────────────────
 
-    fun setPrintStyle(style: PrintStyle) {
-        service.setPrintStyle(style)
-        prefs.edit { putString("printStyle", style.name) }
-    }
+    fun setPrintStyle(style: PrintStyle) = desk.setPrintStyle(style)
 
     fun testPrint() = service.testPrint()
 
@@ -87,6 +82,27 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearAll() {
         viewModelScope.launch { service.clearAll() }
+    }
+
+    // ─── Gäste-Bestellung ───────────────────────────────────────────────────
+
+    /** Switches the server on or off; the foreground service is what keeps it alive in the background. */
+    fun setGuestEnabled(enabled: Boolean) = GuestService.setEnabled(getApplication(), enabled)
+
+    /**
+     * A different port restarts the server in place; the page in a guest's browser just polls on.
+     *
+     * A port that can't be bound leaves nothing behind: the foreground service goes too, or it would keep a
+     * notification for a server that isn't there. The reason stays on the panel.
+     */
+    fun setGuestPort(port: Int) = viewModelScope.launch {
+        if (!desk.startGuest(port)) GuestService.stop(getApplication())
+    }
+
+    /** Invalidates every QR code handed out so far. */
+    fun newGuestCode() {
+        desk.guestSettings.rotateCode()
+        desk.guest.refreshCode()
     }
 
     // ─── Menu ───────────────────────────────────────────────────────────────
@@ -160,7 +176,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Back to a fresh install: no orders, the standard menu without a dough count, the default print style. */
     fun resetAll() {
-        prefs.edit { putString("printStyle", PrintStyle.Receipt.name) }
+        desk.setPrintStyle(PrintStyle.Receipt)
         viewModelScope.launch { service.resetAll() }
     }
 }

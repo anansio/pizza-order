@@ -9,7 +9,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -19,33 +18,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-
-/** [JsonStore] without Android: same JSON, same "keep the last good file" idea, plain java.io.File. */
-private class FileStore<T>(
-    private val file: File,
-    private val serializer: KSerializer<T>,
-    private val defaultValue: T,
-) : JsonFile<T> {
-    private val json = Json { ignoreUnknownKeys = true }
-
-    override suspend fun load(): T =
-        if (file.exists()) runCatching { json.decodeFromString(serializer, file.readText()) }.getOrElse { defaultValue }
-        else defaultValue
-
-    override suspend fun save(data: T) {
-        file.parentFile?.mkdirs()
-        file.writeText(json.encodeToString(serializer, data))
-    }
-}
-
-/** Counts printouts instead of printing them; the print path itself is not what S1 changes. */
-private class RecordingPrinter : PrinterPort {
-    val markups = mutableListOf<String>()
-    override suspend fun print(markup: String): Result<Unit> {
-        markups += markup
-        return Result.success(Unit)
-    }
-}
 
 class OrderServiceTest {
 
@@ -106,6 +78,23 @@ class OrderServiceTest {
         assertEquals(placed.map { it.order.id }.sorted(), orders().map { it.id }.sorted())
     }
 
+    // A saved order keeps its id. The field defaults to System.currentTimeMillis(), so a serializer that drops
+    // defaults would hand two orders loaded in the same millisecond the same id — one "Weiter" tap moves both,
+    // and `prints` can't tell them apart.
+    @Test
+    fun aReloadedOrderKeepsItsId() = runBlocking {
+        val first = service(MenuConfig.Standard.menu.withDoughToday(5))
+        first.load()
+        val placed = listOf("Anna", "Bene").map { first.submit(it, pizza(), "").placed() }
+        awaitPrints(2)
+
+        val second = service()
+        second.load()
+
+        assertEquals(placed.map { it.order.id }.sorted(), second.state.value.orders.map { it.id }.sorted())
+        assertEquals(2, second.state.value.orders.map { it.id }.distinct().size)
+    }
+
     // Without a dough limit takeDough() returns the menu unchanged: writing menu.json for every order was pure I/O.
     @Test
     fun anOrderWithoutADoughLimitDoesNotRewriteTheMenu() = runBlocking {
@@ -148,6 +137,19 @@ class OrderServiceTest {
         assertTrue(service.state.value.orders.isEmpty())
         assertEquals(5, service.state.value.menu.dough!!.available)
         assertTrue(printer.markups.isEmpty())
+    }
+
+    // The form requires a sauce, so the desk must too: a hand-written POST with an empty sauce used to
+    // pass both unknownIngredientsOf() and soldOutOf(), which skip blank names.
+    @Test
+    fun aPizzaWithoutASauceIsRefused() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5))
+        service.load()
+
+        val bare = Pizza("", Sauce("  "), Pizza.toppingsOf(listOf("Käse")))
+        assertRefused(service, service.submit("Anna", bare, ""), Rejection.NoSauce)
+
+        assertEquals(5, service.state.value.menu.dough!!.available)
     }
 
     @Test
@@ -264,6 +266,19 @@ class OrderServiceTest {
 
         assertEquals(2, menu().maxOpenOrders)
         assertEquals(2, service.state.value.menu.maxOpenOrders)
+    }
+
+    // A menu file written by hand or imported can carry a 0 limit: it must read as "no limit", not as a
+    // kitchen that refuses every order with "Gerade sind schon 0 Bestellungen offen".
+    @Test
+    fun aZeroLimitFromAFileDoesNotBlockOrders() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5).copy(maxOpenOrders = 0))
+        service.load()
+
+        val placed = service.submit("Anna", pizza(), "").placed()
+
+        assertEquals(1, placed.order.number)
+        assertEquals(1, service.state.value.orders.size)
     }
 
     // ─── S3: what the desk refuses, and that nothing is written for it ──────

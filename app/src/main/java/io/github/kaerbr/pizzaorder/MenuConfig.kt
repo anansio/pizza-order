@@ -128,6 +128,13 @@ data class MenuConfig(
     /** How many open orders the kitchen takes at once; null lifts the limit. */
     fun withMaxOpenOrders(count: Int?) = copy(maxOpenOrders = count?.takeIf { it > 0 })
 
+    /**
+     * [maxOpenOrders] as a rule rather than as a file value: zero or negative means "no limit", the way
+     * [withMaxOpenOrders] writes it. A hand-edited or imported menu.json could carry a 0, and taking it
+     * literally would refuse every order for the rest of the evening.
+     */
+    val openOrderLimit: Int? get() = maxOpenOrders?.takeIf { it > 0 }
+
     /** Ingredients of [pizza] that aren't on the menu at all; a request built by hand can invent them.
      *  Checked by position: a sauce is only a sauce, a topping only a topping. */
     fun unknownIngredientsOf(pizza: Pizza): List<String> =

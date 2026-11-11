@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Allergen
+import io.github.kaerbr.pizzaorder.CUSTOM_NAME
 import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.MenuConfig
 import io.github.kaerbr.pizzaorder.NAME_MAX
@@ -86,8 +87,6 @@ import io.github.kaerbr.pizzaorder.Sauce
 import io.github.kaerbr.pizzaorder.SubmitResult
 import io.github.kaerbr.pizzaorder.Topping
 import io.github.kaerbr.pizzaorder.printableOnly
-
-internal const val CUSTOM_NAME = "Eigenkreation"
 
 // The floating quick menu (MainActivity) sits in the "01 Dein Name" row: same top edge, and that
 // heading row is exactly as tall as the button so both centre on one line.
@@ -258,7 +257,7 @@ fun OrderScreen(
         PeelDock(
             DockOrder(
                 customer, pizzaName, sauceName, toppingNames, soldOut,
-                capacityFull = menu.maxOpenOrders?.let { openOrders >= it } ?: false,
+                capacityFull = menu.openOrderLimit?.let { openOrders >= it } ?: false,
             ),
             refusal = refusal,
             // Cleared only once the order is actually taken: a refusal keeps the input for another try.

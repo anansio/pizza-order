@@ -1,0 +1,368 @@
+package io.github.kaerbr.pizzaorder
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URI
+
+/**
+ * The guest server over real sockets: a [GuestServer] on a free port, a real [OrderService] with files
+ * in a temp dir.
+ *
+ * Only the pitch (which is one order per key, one number per order) is checked here; the routes themselves
+ * are cheap enough to test through the server as well, so nothing is exercised twice in two ways.
+ */
+class GuestServerTest {
+
+    @get:Rule
+    val tmp = TemporaryFolder()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val printer = RecordingPrinter()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private val code = "test12"
+    private var server: GuestServer? = null
+
+    private fun service(menu: MenuConfig = MenuConfig.Standard.menu) = OrderService(
+        FileStore(File(tmp.root, "orders.json"), ListSerializer(Order.serializer()), emptyList()),
+        FileStore(File(tmp.root, "menu.json"), MenuConfig.serializer(), menu),
+        printer,
+        scope,
+    )
+
+    private suspend fun start(service: OrderService): Int {
+        val api = GuestApi(service, { code }, PAGE, now = { 1_000L })
+        val s = GuestServer(0, api)
+        s.start()
+        server = s
+        return s.listeningPort
+    }
+
+    @After
+    fun tearDown() {
+        server?.stop()
+        scope.cancel()
+    }
+
+    private fun pizza() = MenuConfig.Standard.menu.presets.first { it.name == "Margherita" }
+
+    private fun body(
+        customer: String = "Anna",
+        sauce: String = "Tomate",
+        toppings: List<String> = listOf("Käse"),
+        note: String = "",
+    ) = """{"customer":"$customer","note":"$note","pizza":{"sauce":"$sauce","toppings":[${toppings.joinToString(",") { "\"$it\"" }}]}}"""
+
+    private data class Answer(val status: Int, val body: String)
+
+    private fun request(
+        port: Int,
+        path: String,
+        method: String = "GET",
+        body: String? = null,
+        key: String? = null,
+    ): Answer {
+        val connection = URI("http://127.0.0.1:$port$path").toURL().openConnection() as HttpURLConnection
+        connection.requestMethod = method
+        connection.setRequestProperty("Accept", "application/json")
+        key?.let { connection.setRequestProperty("Idempotency-Key", it) }
+        if (body != null) {
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.outputStream.use { it.write(body.toByteArray()) }
+        }
+        val status = connection.responseCode
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+        val text = stream?.use { it.readBytes().decodeToString() }.orEmpty()
+        connection.disconnect()
+        return Answer(status, text)
+    }
+
+    private fun guestOrder(text: String): GuestOrder =
+        json.decodeFromString(GuestReceipt.serializer(), text).order
+
+    // ─── Routes ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun thePageNeedsTheCodeAndThenArrives() = runBlocking {
+        val port = start(service().also { it.load() })
+
+        assertEquals(403, request(port, "/").status)
+        assertEquals(403, request(port, "/?k=falsch").status)
+
+        val page = request(port, "/?k=$code")
+        assertEquals(200, page.status)
+        assertEquals(PAGE, page.body)
+    }
+
+    @Test
+    fun theMenuCarriesWhatAGuestNeedsAndNothingFromTheAdminSide() = runBlocking {
+        val service = service(
+            MenuConfig.Standard.menu.withDoughToday(7).withSoldOut("Käse", true).withMaxOpenOrders(4),
+        )
+        service.load()
+        val port = start(service)
+
+        val answer = request(port, "/api/menu?k=$code")
+        assertEquals(200, answer.status)
+        val menu = json.decodeFromString(GuestMenu.serializer(), answer.body)
+
+        assertEquals(7, menu.available)
+        assertEquals(4, menu.maxOpenOrders)
+        assertEquals(listOf("Käse"), menu.soldOut)
+        assertTrue(menu.sauces.isNotEmpty() && menu.toppings.isNotEmpty() && menu.presets.isNotEmpty())
+        // The margherita can't be ordered tonight, and the guest page can see why.
+        assertEquals(listOf("Käse"), menu.presets.first { it.name == "Margherita" }.soldOut)
+        // Admin-only data stays off the phone: no QR links, no dough's "today", no open-order list.
+        assertTrue(!answer.body.contains("funLinks") && !answer.body.contains("today"))
+    }
+
+    @Test
+    fun anOrderComesBackWithItsNumberSlipAndPosition() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))
+        assertEquals(201, answer.status)
+
+        val receipt = json.decodeFromString(GuestReceipt.serializer(), answer.body)
+        assertEquals(1, receipt.order.number)
+        assertEquals("Margherita", receipt.order.pizza)
+        assertEquals("QUEUED", receipt.order.status)
+        assertEquals("Wartet", receipt.order.statusLabel)
+        assertEquals(0, receipt.order.ahead)
+        // The phone shows the same slip the tablet shows.
+        assertTrue(receipt.printout.contains("Anna"))
+    }
+
+    @Test
+    fun twoGuestsGetTwoNumbersAndTheSecondSeesOneAhead() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val first = guestOrder(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna")).body)
+        val second = guestOrder(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Bene")).body)
+
+        assertEquals(listOf(1, 2), listOf(first.number, second.number))
+        assertEquals(1, second.ahead)
+
+        val list = json.decodeFromString(GuestOrdersEnvelope.serializer(), request(port, "/api/orders?k=$code").body)
+        assertEquals(2, list.orders.size)
+        assertEquals(listOf(2, 1), list.orders.map { it.number })
+    }
+
+    @Test
+    fun aBuiltByHandPizzaIsNamedEigenkreationAndNeverCarriesAGuestString() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(
+            port, "/api/orders?k=$code", method = "POST",
+            body = body(sauce = "Tomate", toppings = listOf("Oliven", "Rucola")),
+        )
+        assertEquals(201, answer.status)
+        assertEquals(CUSTOM_NAME, guestOrder(answer.body).pizza)
+    }
+
+    // ─── Retry, refusal, trust boundary ─────────────────────────────────────
+
+    @Test
+    fun theSameRetryIsOneOrderNotTwo() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val first = request(port, "/api/orders?k=$code", method = "POST", body = body(), key = "abc")
+        val retry = request(port, "/api/orders?k=$code", method = "POST", body = body(), key = "abc")
+
+        assertEquals(201, first.status)
+        // 200, not 201: the order exists, the phone only repeated itself.
+        assertEquals(200, retry.status)
+        assertEquals(first.body, retry.body)
+        // One dough ball, one printout, one entry on the tablet.
+        assertEquals(1, request(port, "/api/menu?k=$code").body
+            .let { json.decodeFromString(GuestMenu.serializer(), it) }.openOrders)
+        // Printing runs beside the answer, so wait for the first slip and then give a second one time to
+        // appear; a plain size check right away is a race in CI, not a guarantee.
+        withTimeout(5_000) { while (printer.markups.size < 1) delay(10) }
+        delay(200)
+        assertEquals(1, printer.markups.size)
+    }
+
+    @Test
+    fun aDifferentKeyIsADifferentOrder() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        request(port, "/api/orders?k=$code", method = "POST", body = body(), key = "abc")
+        val second = request(port, "/api/orders?k=$code", method = "POST", body = body(), key = "def")
+
+        assertEquals(201, second.status)
+        assertEquals(2, guestOrder(second.body).number)
+    }
+
+    @Test
+    fun anInventedIngredientIsRefusedWithAReason() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(
+            port, "/api/orders?k=$code", method = "POST",
+            body = body(sauce = "Ketchup", toppings = listOf("Ananas")),
+        )
+
+        assertEquals(400, answer.status)
+        val refusal = json.decodeFromString(GuestRefusal.serializer(), answer.body)
+        assertEquals("unknown_ingredient", refusal.reason)
+        assertTrue(refusal.message.contains("Ketchup"))
+        assertTrue(printer.markups.isEmpty())
+    }
+
+    @Test
+    fun anEmptyNameIsRefused() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "   "))
+
+        assertEquals(400, answer.status)
+        assertEquals("name", json.decodeFromString(GuestRefusal.serializer(), answer.body).reason)
+    }
+
+    @Test
+    fun noDoughIsAConflictNotABadRequest() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(0)).also { it.load() })
+
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body())
+
+        assertEquals(409, answer.status)
+        assertEquals("no_dough", json.decodeFromString(GuestRefusal.serializer(), answer.body).reason)
+    }
+
+    @Test
+    fun theFullQueueIsAConflict() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9).withMaxOpenOrders(1)).also { it.load() })
+
+        assertEquals(201, request(port, "/api/orders?k=$code", method = "POST", body = body()).status)
+        val refused = request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Bene"))
+
+        assertEquals(429, refused.status)
+        assertEquals("too_many_open", json.decodeFromString(GuestRefusal.serializer(), refused.body).reason)
+    }
+
+    @Test
+    fun aWrongCodeIsForbiddenBeforeTheBodyIsLookedAt() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        // Garbage body: if the code were checked after parsing, this would be a 400 instead of a 403.
+        val answer = request(port, "/api/orders?k=falsch", method = "POST", body = "kein json")
+
+        assertEquals(403, answer.status)
+    }
+
+    @Test
+    fun aWrongCodeIsForbiddenBeforeTheBodyLengthIsChecked() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        // Over the cap and refused for the code: 413 here would mean the transport measured the body before
+        // the code, which is exactly the order a stranger could exploit.
+        val answer = request(
+            port, "/api/orders?k=falsch", method = "POST",
+            body = body(note = "x".repeat(GuestApi.MAX_BODY_BYTES + 100)),
+        )
+
+        assertEquals(403, answer.status)
+        assertTrue(printer.markups.isEmpty())
+    }
+
+    @Test
+    fun aBodyWithoutSauceIsRefusedWithAReason() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body(sauce = "", toppings = emptyList()))
+
+        assertEquals(400, answer.status)
+        val refusal = json.decodeFromString(GuestRefusal.serializer(), answer.body)
+        assertEquals("no_sauce", refusal.reason)
+        assertTrue(refusal.message.contains("Sauce"))
+        assertTrue(printer.markups.isEmpty())
+    }
+
+    @Test
+    fun aBodyOverTheLimitIsRefusedWithoutTakingAnOrder() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        // Printed, not refused: the form cuts the same way. Well past NOTE_MAX, still under the cap.
+        val long = request(port, "/api/orders?k=$code", method = "POST", body = body(note = "x".repeat(500)))
+        assertEquals(201, long.status)
+
+        val huge = request(port, "/api/orders?k=$code", method = "POST", body = body(note = "x".repeat(GuestApi.MAX_BODY_BYTES + 100)))
+        assertEquals(413, huge.status)
+
+        // The too-large one never reached the printer, so exactly one slip exists.
+        withTimeout(5_000) { while (printer.markups.size < 1) delay(10) }
+        delay(200)
+        assertEquals(1, printer.markups.size)
+    }
+
+    @Test
+    fun theBodyIsReadAsUtf8EvenWithoutACharsetHeader() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        // NanoHTTPD's own parseBody would fall back to US-ASCII here and turn "Jörg" into "J?rg".
+        val answer = request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Jörg"))
+
+        assertEquals(201, answer.status)
+        assertTrue(answer.body.contains("Jörg"))
+    }
+
+    // ─── The desk is the same one the tablet uses ───────────────────────────
+
+    @Test
+    fun aGuestOrderShowsUpInTheSameListTheTabletRenders() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(9))
+        service.load()
+        val port = start(service)
+
+        request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))
+
+        // One service: the kitchen screen and the phone see the same order, number and dough.
+        val order = service.state.value.orders.single()
+        assertEquals(1, order.number)
+        assertEquals("Anna", order.customer)
+        assertEquals(8, service.state.value.menu.dough!!.available)
+        // The same print path as a tablet order: answered at once, printed beside the response.
+        withTimeout(5_000) { while (printer.markups.isEmpty()) delay(10) }
+        assertEquals(1, printer.markups.size)
+
+        service.advance(order)
+        val list = json.decodeFromString(GuestOrdersEnvelope.serializer(), request(port, "/api/orders?k=$code").body)
+        assertEquals("BAKING", list.orders.single().status)
+        assertEquals(0, list.orders.single().ahead)
+    }
+
+    @Test
+    fun onlyTheFourRoutesAnswer() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(9))
+        service.load()
+        val port = start(service)
+
+        // The admin half must not be reachable from a phone, not even with the code.
+        listOf("/api/admin", "/api/menu/delete", "/api/orders/clear", "/api/dough").forEach { path ->
+            assertEquals(path, 404, request(port, "$path?k=$code").status)
+        }
+        assertEquals(405, request(port, "/api/orders?k=$code", method = "PUT").status)
+        assertEquals(405, request(port, "/?k=$code", method = "POST", body = "x").status)
+    }
+
+    private companion object {
+        const val PAGE = "<!doctype html><title>Testseite</title>"
+    }
+}

@@ -57,6 +57,9 @@ enum class OrderStatus(val label: String) { QUEUED("Wartet"), BAKING("Im Ofen"),
 fun List<Order>.topPizzas(limit: Int = 3) =
     groupingBy { it.pizza.name }.eachCount().toList().sortedByDescending { it.second }.take(limit)
 
+/** Name of the pizza the guest built by hand, when no preset matches. */
+const val CUSTOM_NAME = "Eigenkreation"
+
 @Serializable
 data class Order(
     val id: Long = System.currentTimeMillis(),
