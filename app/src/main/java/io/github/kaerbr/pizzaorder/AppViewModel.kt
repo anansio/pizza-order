@@ -55,6 +55,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun testPrint() = service.testPrint()
 
+    /** The table card a guest scans; no order behind it, so it reports its own print state. */
+    fun printGuestCard(url: String) = service.printGuestCard(url)
+
     // ─── Orders ─────────────────────────────────────────────────────────────
 
     /**

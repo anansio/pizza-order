@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import io.github.kaerbr.pizzaorder.Confirmation
+import io.github.kaerbr.pizzaorder.GuestQr
 import io.github.kaerbr.pizzaorder.PrintStatus
 import io.github.kaerbr.pizzaorder.Printout
 import kotlin.math.roundToInt
@@ -231,7 +232,7 @@ private fun PaperLine(line: Printout.Line, fontSize: TextUnit, paperWidth: Dp) {
                 Printout.Align.Right -> Alignment.CenterEnd
             }
             when (seg) {
-                is Printout.QrSegment -> FakeQr(seg.url, paperWidth * (seg.sizeMm / Printout.PAPER_MM), Modifier.align(align).padding(vertical = 6.dp))
+                is Printout.QrSegment -> SlipQr(seg.url, paperWidth * (seg.sizeMm / Printout.PAPER_MM), Modifier.align(align).padding(vertical = 6.dp))
                 is Printout.TextSegment -> {
                     // Line height follows the largest run, so "big" numbers don't overlap their neighbours.
                     val tallest = if (seg.runs.any { it.size != Printout.Size.Normal }) fontSize * 2 else fontSize
@@ -266,23 +267,16 @@ private fun Printout.Run.style(fontSize: TextUnit) = SpanStyle(
 )
 
 /**
- * Stand-in for the printed QR code: same size and look, but not scannable (no QR encoder in the app).
- * The pattern is seeded from the link, so the slip stays the same while it's on screen.
+ * The printed QR code, encoded for real: the slip is what the paper looks like, and a card on the table is
+ * meant to be scanned off the screen too when nobody gets to the printer. Same encoder as the guest panel.
  */
 @Composable
-private fun FakeQr(url: String, size: Dp, modifier: Modifier = Modifier) {
-    val modules = 25
-    val bits = remember(url) { java.util.Random(url.hashCode().toLong()).let { r -> List(modules * modules) { r.nextBoolean() } } }
+private fun SlipQr(url: String, size: Dp, modifier: Modifier = Modifier) {
+    val matrix = remember(url) { GuestQr.matrix(url) }
     Canvas(modifier.size(size)) {
-        val cell = this.size.width / modules
-        fun inFinder(x: Int, y: Int) = (x < 8 && y < 8) || (x >= modules - 8 && y < 8) || (x < 8 && y >= modules - 8)
-        for (y in 0 until modules) for (x in 0 until modules) {
-            if (!inFinder(x, y) && bits[y * modules + x]) drawRect(Ink, Offset(x * cell, y * cell), Size(cell, cell))
-        }
-        listOf(Offset(0f, 0f), Offset((modules - 7) * cell, 0f), Offset(0f, (modules - 7) * cell)).forEach { o ->
-            drawRect(Ink, o, Size(7 * cell, 7 * cell))
-            drawRect(Paper, o + Offset(cell, cell), Size(5 * cell, 5 * cell))
-            drawRect(Ink, o + Offset(2 * cell, 2 * cell), Size(3 * cell, 3 * cell))
+        val cell = this.size.width / matrix.size
+        for (y in matrix.indices) for (x in matrix.indices) {
+            if (matrix[y][x]) drawRect(Ink, Offset(x * cell, y * cell), Size(cell, cell))
         }
     }
 }

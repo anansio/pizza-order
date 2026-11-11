@@ -45,6 +45,7 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocalPizza
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.LightMode
@@ -89,6 +90,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.kaerbr.pizzaorder.ui.FormSidePadding
 import io.github.kaerbr.pizzaorder.ui.FormTop
+import io.github.kaerbr.pizzaorder.ui.GuestQrScreen
 import io.github.kaerbr.pizzaorder.ui.OrderConfirmation
 import io.github.kaerbr.pizzaorder.ui.OrderScreen
 import io.github.kaerbr.pizzaorder.ui.QuickMenuSize
@@ -158,6 +160,9 @@ fun App(vm: AppViewModel) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showLock by remember { mutableStateOf(false) }
+    // The guest QR code is not behind the admin lock: it is what a guest has to find, and it shows
+    // nothing a person at the tablet couldn't read off the panel anyway.
+    var showGuestQr by rememberSaveable { mutableStateOf(false) }
 
     // Up here, not in the admin panel: the file dialog stops the activity, so without [inFileDialog] the lock
     // below would close the panel, and a launcher inside it would be gone before the result arrives.
@@ -171,7 +176,8 @@ fun App(vm: AppViewModel) {
         uri?.let(vm::importMenu)
     }
 
-    // Leaving the app (home button, screen off) always locks the admin panel.
+    // Leaving the app (home button, screen off) always locks the admin panel. The guest QR code stays: it
+    // shows nothing the lock protects, and closing the screen while the tablet sits on the table is the point.
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (!inFileDialog) { showSettings = false; showLock = false } }
 
     PizzaTheme(darkTheme = darkTheme, palette = palette) {
@@ -202,11 +208,20 @@ fun App(vm: AppViewModel) {
                     // octet-stream too: some file apps don't know .json.
                     onImportMenu = { inFileDialog = true; menuImport.launch(arrayOf("application/json", "application/octet-stream")) },
                 )
+            } else if (showGuestQr) {
+                BackHandler { showGuestQr = false }
+                GuestQrScreen(
+                    guest = vm.guest.collectAsStateWithLifecycle().value,
+                    printStatus = state.prints[GUEST_CARD_PRINT_ID],
+                    onPrintCard = vm::printGuestCard,
+                    onClose = { showGuestQr = false },
+                )
             } else {
                 MainScaffold(
                     state = state,
                     pagerState = pagerState,
                     onOpenSettings = { showLock = true },
+                    onOpenGuestQr = { showGuestQr = true },
                     onOpenAppearance = { showAppearance = true },
                     vm = vm,
                 )
@@ -220,6 +235,7 @@ private fun MainScaffold(
     state: AppState,
     pagerState: PagerState,
     onOpenSettings: () -> Unit,
+    onOpenGuestQr: () -> Unit,
     onOpenAppearance: () -> Unit,
     vm: AppViewModel,
 ) {
@@ -263,6 +279,7 @@ private fun MainScaffold(
                 pendingCount = pendingCount,
                 unprinted = state.unprinted,
                 onSelectPage = { page -> scope.launch { pagerState.animateScrollToPage(page) } },
+                onOpenGuestQr = onOpenGuestQr,
                 onOpenAppearance = onOpenAppearance,
                 onOpenSettings = onOpenSettings,
             )
@@ -292,6 +309,7 @@ private fun BoxScope.QuickMenu(
     pendingCount: Int,
     unprinted: Int,
     onSelectPage: (Int) -> Unit,
+    onOpenGuestQr: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -344,6 +362,7 @@ private fun BoxScope.QuickMenu(
                 listOf("Bestellen", orders).forEachIndexed { page, label ->
                     QuickMenuItem(pageIcons[page], label, selected = currentPage == page) { open = false; onSelectPage(page) }
                 }
+                QuickMenuItem(Icons.Default.QrCode2, "QR-Code für Gäste") { open = false; onOpenGuestQr() }
                 QuickMenuItem(Icons.Outlined.LightMode, "Aussehen") { open = false; onOpenAppearance() }
                 QuickMenuItem(Icons.Outlined.AdminPanelSettings, "Admin-Panel") { open = false; onOpenSettings() }
             }
@@ -510,6 +529,8 @@ private fun SettingsScaffold(
             onSetGuestEnabled = vm::setGuestEnabled,
             onSetGuestPort   = vm::setGuestPort,
             onNewGuestCode   = vm::newGuestCode,
+            onPrintGuestCard = vm::printGuestCard,
+            guestCardStatus  = state.prints[GUEST_CARD_PRINT_ID],
             printStyle      = state.printStyle,
             onPrintStyle    = vm::setPrintStyle,
             onTestPrint      = { vm.testPrint() },

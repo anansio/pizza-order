@@ -130,6 +130,9 @@ class OrderService(
         runPrint(state.printStyle.format(order, state.menu.funLinks.randomOrNull()), order.id)
     }
 
+    /** The table card with the guest QR code; its print state is its own, like the test print's. */
+    fun printGuestCard(url: String) = runPrint(GuestCard.format(url), GUEST_CARD_PRINT_ID)
+
     private fun setPrint(id: Long, status: PrintStatus?) = _state.update {
         it.copy(prints = if (status == null) it.prints - id else it.prints + (id to status))
     }

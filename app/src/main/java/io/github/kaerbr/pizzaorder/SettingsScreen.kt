@@ -5,6 +5,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -78,6 +80,7 @@ import io.github.kaerbr.pizzaorder.Diet
 import io.github.kaerbr.pizzaorder.DoughStock
 import io.github.kaerbr.pizzaorder.FunLink
 import io.github.kaerbr.pizzaorder.GuestRuntime
+import io.github.kaerbr.pizzaorder.LocalAddress
 import io.github.kaerbr.pizzaorder.GuestStatus
 import io.github.kaerbr.pizzaorder.LocalNetworkPermission
 import io.github.kaerbr.pizzaorder.MenuConfig
@@ -92,7 +95,7 @@ import io.github.kaerbr.pizzaorder.Topping
 import io.github.kaerbr.pizzaorder.topPizzas
 import kotlinx.coroutines.delay
 
-private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links")
+private val ADMIN_TABS = listOf("Übersicht", "Menü", "Ausdruck", "QR-Links zum Bon")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -120,6 +123,8 @@ fun SettingsScreen(
     onSetGuestEnabled: (Boolean) -> Unit,
     onSetGuestPort: (Int) -> Unit,
     onNewGuestCode: () -> Unit,
+    onPrintGuestCard: (String) -> Unit,
+    guestCardStatus: PrintStatus?,
     printStyle: PrintStyle,
     onPrintStyle: (PrintStyle) -> Unit,
     onTestPrint: () -> Unit,
@@ -202,7 +207,7 @@ fun SettingsScreen(
                                 StatTile(OrderStatus.QUEUED.label, waiting, Modifier.weight(1f))
                                 StatTile(OrderStatus.BAKING.label, baking, Modifier.weight(1f))
                                 StatTile(OrderStatus.READY.label, done, Modifier.weight(1f))
-                                StatTile("QR-Links", menu.funLinks.size, Modifier.weight(1f))
+                                StatTile("QR-Links zum Bon", menu.funLinks.size, Modifier.weight(1f))
                             }
                         }
                         orders.topPizzas().takeIf { it.isNotEmpty() }?.let { top ->
@@ -227,6 +232,8 @@ fun SettingsScreen(
                                 onEnabled = onSetGuestEnabled,
                                 onPort = onSetGuestPort,
                                 onNewCode = onNewGuestCode,
+                                onPrintCard = onPrintGuestCard,
+                                cardStatus = guestCardStatus,
                             )
                         }
                         Section(title = "Drucker") {
@@ -362,7 +369,14 @@ fun SettingsScreen(
                         TestPrintButton(onTestPrint, testPrintStatus)
                     }
 
-                    else -> Section(title = "QR-Links") {
+                    else -> Section(title = "QR-Links zum Bon") {
+                        Text(
+                            "Diese Codes landen auf dem Küchenbon, etwa zu einem Pizza-Witz. Den QR-Code für " +
+                                "Gäste findest du im Schnellmenü unter „QR-Code für Gäste“ und im Abschnitt " +
+                                "„Gäste-Bestellung“ im Übersicht-Tab.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         if (menu.funLinks.isEmpty()) {
                             Text(
                                 "(keine – Ausdruck ohne QR-Code)",
@@ -624,10 +638,12 @@ private fun OpenOrdersSetting(limit: Int?, open: Int, onSet: (Int?) -> Unit) {
 // ─── Section building blocks ───────────────────────────────────────────────
 
 /**
- * The switch for the guest server: on/off, port, join code.
+ * The switch for the guest server: on/off, port, join code — and, while it runs, the guest QR code and the
+ * button that prints the same code as a card for the table.
  *
- * The QR code and the tablet's address come in S6; until then this section names the address by hand, so a
- * guest can already type it in. Only the admin sees this — the code is exactly what keeps a neighbour out.
+ * The panel is not the only place for the code any more (see ui/GuestQrScreen.kt), but it stays here because
+ * starting the server and handing out the code are one job. Only the admin sees this — the code is exactly
+ * what keeps a neighbour out.
  */
 @Composable
 private fun GuestSetting(
@@ -635,6 +651,8 @@ private fun GuestSetting(
     onEnabled: (Boolean) -> Unit,
     onPort: (Int) -> Unit,
     onNewCode: () -> Unit,
+    onPrintCard: (String) -> Unit,
+    cardStatus: PrintStatus?,
 ) {
     var port by remember(guest.port) { mutableStateOf(guest.port.toString()) }
     var confirmNewCode by remember { mutableStateOf(false) }
@@ -670,7 +688,8 @@ private fun GuestSetting(
     )
     Text(
         "Der Server bleibt aus dem Internet unerreichbar: er hört nur im lokalen Netz. " +
-            "Reicht das WLAN die Geräte nicht durch (Gäste-WLAN), hilft ein Hotspot am Tablet.",
+            "Reicht das WLAN die Geräte nicht durch (Gäste-WLAN), hilft ein Hotspot am Tablet — den Code " +
+            "zeigt die App dann auch dafür.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -726,11 +745,48 @@ private fun GuestSetting(
         // Nothing secret is on this screen that a guest standing at the tablet couldn't read anyway; the code's
         // job is to keep phones *outside* the party out, not the person the admin handed the tablet to.
         Text("Code: ${guest.code}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Adresse: http://<IP-des-Tablets>:${guest.port}/?k=${guest.code}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+
+        val ip = rememberLocalIpv4()
+        when {
+            // Nothing listens, so a code would point at a closed port. The status line above says why.
+            guest.status is GuestStatus.Failed -> Unit
+            // No IPv4 means no address a phone could reach, and the code would encode "http://null:8080".
+            // The server may well be "läuft" either way: it binds 0.0.0.0, which is no WLAN at all.
+            ip == null -> Text(
+                "Kein WLAN und kein Hotspot. Das Tablet hängt an keinem Netz, das ein Handy erreichen kann " +
+                    "— Mobilfunk zählt nicht. WLAN verbinden, oder am Tablet einen Hotspot aufmachen und " +
+                    "die Gäste dort einloggen.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            else -> {
+                val url = LocalAddress.url(ip, guest.port, guest.code)
+                // On the screen, not only on paper: a DHCP lease outlives yesterday's printout, and the panel
+                // picks up a changed address while it is open.
+                GuestQrCode(url, Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp))
+                Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // The same code on paper: the tablet can stay in the kitchen while a card lies on the table.
+                OutlinedButton(
+                    onClick = { onPrintCard(url) },
+                    enabled = cardStatus != PrintStatus.Printing,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(cardStatus.icon, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(cardStatus.label("QR-Bon für den Tisch drucken"))
+                }
+                if (cardStatus is PrintStatus.Failed) {
+                    Text(cardStatus.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    "Gäste scannen den Code. Findet ein Handy die Seite nicht, obwohl das WLAN passt, " +
+                        "sperrt das Gäste-WLAN die Geräte gegenseitig — dann am Tablet einen Hotspot aufmachen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

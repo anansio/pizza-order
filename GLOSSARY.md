@@ -5,7 +5,7 @@ Bestell-App für Pizza-Abende: Gäste bestellen am Tablet, die Küche arbeitet d
 ## Bestellen
 
 **Gast**:
-Die Person, die am Tablet eine Pizza bestellt; erscheint mit Namen auf dem Ausdruck.
+Die Person, die eine Pizza bestellt — am Tablet oder vom eigenen Handy; erscheint mit Namen auf dem Ausdruck.
 _Avoid_: Kunde, Benutzer
 
 **Bestellung**:
@@ -64,8 +64,16 @@ Das Aussehen aller Ausdrucke, „Beleg“ oder „Beleg Design“; gilt für all
 _Avoid_: Druckstil, Vorlage
 
 **QR-Link**:
-Eine URL, die als QR-Code auf den Ausdruck gedruckt wird; die Bezeichnung dazu ist nur im Admin-Panel sichtbar.
+Eine URL, die als QR-Code auf den Küchenbon gedruckt wird; die Bezeichnung dazu ist nur im Admin-Panel sichtbar. Im Panel heißt der Tab deshalb „QR-Links zum Bon“.
 _Avoid_: Fun-Link
+
+**Gäste-QR-Code**:
+Der QR-Code, der die Gastseite im lokalen Netz öffnet. Steht im Schnellmenü unter „QR-Code für Gäste“ und im Gäste-Abschnitt des Admin-Panels; er ist kein QR-Link und landet nicht auf dem Küchenbon.
+_Avoid_: Bestell-QR, Gast-Link, QR-Links
+
+**QR-Bon**:
+Der gedruckte Bon für den Tisch: derselbe Gäste-QR-Code, dazu Adresse und Code in Schrift, für Handys, deren Kamera nicht will. Damit kann das Tablet in der Küche bleiben.
+_Avoid_: Tischkarte, Flyer, QR-Karte
 
 ## Verwaltung
 

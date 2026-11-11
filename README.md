@@ -31,10 +31,12 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 🧾 **Bon auf dem Bildschirm**: Nach dem Bestellen läuft der Ausdruck auf dem Tablet so schnell ein wie aus dem Drucker
 - 📋 **Bestellliste** mit „Wartet“, „Im Ofen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
+- 📱 **Gäste bestellen wahlweise vom eigenen Handy**: QR-Code am Tablet, das Handy öffnet die Bestellseite im WLAN — ohne App, ohne Internet. Der Gäste-Server dafür ist standardmäßig aus und wird im Admin-Panel eingeschaltet; ohne ihn bestellen Gäste wie gewohnt am Tablet
+- 🪧 **QR-Bon für den Tisch**: derselbe Code gedruckt, damit das Tablet in der Küche bleiben kann
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
 - 🔒 **Admin-Panel** hinter einem Entsperrmuster, damit Gäste nicht im Menü herumspielen
-- ✈️ **Komplett offline**: kein Konto, kein Server, alle Daten bleiben auf dem Tablet
+- ✈️ **Komplett offline**: kein Konto, kein Internet, alle Daten bleiben auf dem Tablet. Ein eingeschalteter Gäste-Server läuft auf dem Tablet selbst und ist nur im lokalen Netz erreichbar; ausgeschaltet öffnet die App keinen Port
 
 ## 🔄 So läuft ein Pizza-Abend
 
@@ -88,9 +90,12 @@ Im Admin-Panel kannst du:
 - begrenzen, wie viele **offene Bestellungen** es gleichzeitig geben darf (ohne Eintrag kein Limit); ist das Limit erreicht, sagt die App ab, statt die Küche zu überfüllen
 - den **Bildschirm fixieren**, damit Home und Zurück gesperrt sind (gegen gezieltes Lösen hilft die PIN-Abfrage in den Android-Einstellungen)
 - das **Ausdruck-Design** wählen und einen **Testdruck** auslösen
-- **QR-Links** für den Ausdruck pflegen
+- den **Gäste-Server** ein- und ausschalten (Standard: aus), den Port setzen und den Code neu erzeugen; derselbe Abschnitt zeigt den QR-Code für Gäste und druckt den **QR-Bon für den Tisch**. Ab Android 17 fragt das System einmalig nach der Berechtigung für lokale Netzwerke; ohne sie startet der Server nicht und der Abschnitt nennt den Grund
+- **QR-Links zum Bon** pflegen (die Codes auf dem Küchenbon, nicht der Gäste-Zugang)
 - **alle Bestellungen löschen**, z. B. vor dem nächsten Abend (der Teig-Zähler startet dabei wieder bei der Anzahl für heute, und „aus“ markierte Zutaten sind wieder da)
 - **alles zurücksetzen**: Bestellungen, Menü, Teig, QR-Links und Ausdruck-Design wie nach der Installation
+
+> Der **QR-Code für Gäste** liegt außerdem direkt im Schnellmenü (oben rechts), ohne Muster davor: er ist für Gäste gedacht, nicht für den Admin.
 
 > [!NOTE]
 > Die Sperre soll nur neugierige Gäste fernhalten und ist keine echte Sicherheit.

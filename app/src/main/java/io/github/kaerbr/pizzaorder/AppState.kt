@@ -23,3 +23,4 @@ sealed interface PrintStatus {
 }
 
 const val TEST_PRINT_ID = -1L
+const val GUEST_CARD_PRINT_ID = -2L
