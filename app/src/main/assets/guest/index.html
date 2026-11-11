@@ -1,17 +1,711 @@
 <!doctype html>
 <html lang="de">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Pizza bestellen</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #faf6f1; color: #2a1f18; }
-  main { max-width: 32rem; margin: 0 auto; }
-  h1 { font-size: 1.5rem; }
-  code { background: #efe4d8; padding: 2px 5px; border-radius: 4px; }
+  :root {
+    --font-ui: system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --radius: 14px;
+    --bg: #efe7db;
+    --surface: #faf6ef;
+    --surface-2: #f4ede3;
+    --ink: #2a211c;
+    --muted: #6b5849;
+    --line: #dccdbd;
+    --accent: #a63f22;
+    --accent-ink: #fff7f1;
+    --accent-soft: #f3dcd1;
+    --danger: #982d1c;
+    --danger-soft: #f7e2db;
+    --ready-bg: #dbe9d4;
+    --ready-ink: #2c5230;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171210;
+      --surface: #211a17;
+      --surface-2: #2a211d;
+      --ink: #f3eae0;
+      --muted: #bca998;
+      --line: #3a2e27;
+      --accent: #e0764a;
+      --accent-ink: #1c110c;
+      --accent-soft: #3a241b;
+      --danger: #f09a86;
+      --danger-soft: #3a211b;
+      --ready-bg: #1e3324;
+      --ready-ink: #a9d6a4;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 17px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 2;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 12px 20px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-family: var(--font-display); font-size: 20px; }
+  .brand small { display: block; font-family: var(--font-ui); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+  main { max-width: 34rem; margin: 0 auto; padding: 20px 20px 190px; }
+
+  h1 { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1.15; margin: 0; }
+  .lede { color: var(--muted); margin: 6px 0 0; }
+
+  .block { margin-top: 26px; }
+  .block-head { display: flex; align-items: baseline; gap: 10px; }
+  .block-head h2 { font-family: var(--font-display); font-weight: 400; font-size: 20px; margin: 0; flex: 1; }
+  .step { font-size: 11px; letter-spacing: .08em; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .aside { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  input[type="text"], textarea {
+    width: 100%; padding: 13px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    min-height: 52px;
+  }
+  textarea { min-height: 84px; resize: vertical; line-height: 1.45; }
+  input[type="text"]:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .foot { display: flex; justify-content: flex-end; margin-top: 6px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  @media (max-width: 360px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .card {
+    position: relative; display: flex; flex-direction: column; gap: 4px;
+    padding: 12px 13px; text-align: left;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .card[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .card[disabled] { opacity: .45; cursor: not-allowed; }
+  .card-name { font-family: var(--font-display); font-size: 18px; line-height: 1.2; }
+  .card-desc { font-size: 14px; color: var(--muted); }
+  .card-foot { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 8px; }
+  .tag {
+    display: inline-block; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  .tag.out { border-color: var(--danger); color: var(--danger); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    padding: 9px 13px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line); cursor: pointer;
+    min-height: 42px;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+  .chip[disabled] { opacity: .45; cursor: not-allowed; }
+
+  .alert {
+    display: flex; gap: 10px; margin-top: 18px; padding: 12px 14px;
+    background: var(--danger-soft); border: 1px solid var(--danger); border-radius: var(--radius);
+    color: var(--danger); font-size: 15px;
+  }
+  .alert strong { display: block; }
+
+  /* Ein fester Fußbereich: Tabs und Bestell-Dock gehören zusammen, sonst legt sich das Dock über die Tabs
+     und man kommt nicht mehr auf die Statusseite. */
+  .bottom {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .dock {
+    padding: 12px 20px 12px;
+  }
+  .dock-inner { max-width: 34rem; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .summary { flex: 1; min-width: 0; }
+  .summary-line { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .summary-detail { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .buy {
+    flex: none; padding: 0 22px; min-height: 52px; border: 0; border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer;
+  }
+  .buy[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .tabs { display: flex; gap: 6px; max-width: 34rem; margin: 0 auto; padding: 10px 20px 0; }
+  .tab {
+    flex: 1; min-height: 44px; border-radius: 999px; cursor: pointer;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-weight: 600;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+  .ticket {
+    display: flex; gap: 14px; align-items: center;
+    margin-top: 14px; padding: 16px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  .ticket.mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .ticket.ready { background: var(--ready-bg); border-color: var(--ready-ink); }
+  .num { font-family: var(--font-display); font-size: 26px; min-width: 4.2ch; }
+  .ticket-body { flex: 1; min-width: 0; }
+  .ticket-pizza { font-weight: 600; }
+  .ticket-status { font-size: 13px; color: var(--muted); }
+  .ticket.ready .ticket-status { color: var(--ready-ink); }
+
+  .big { margin-top: 16px; padding: 20px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+  .big.ready { background: var(--ready-bg); border-color: var(--ready-ink); color: var(--ready-ink); }
+  .big .num { font-size: 40px; }
+  .big p { margin: 4px 0 0; }
+
+  .empty { margin-top: 16px; color: var(--muted); }
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
 </style>
+
+<header>
+  <div class="brand">Pizza-Party<small>Bestellung vom Handy</small></div>
+  <span class="aside" id="connection">…</span>
+</header>
+
 <main>
-  <h1>Pizza bestellen</h1>
-  <p>Der Server läuft, die Bestellseite kommt mit Schritt S5.</p>
-  <p>Bis dahin antwortet die API: <code>/api/menu</code> und <code>/api/orders</code>.</p>
+  <section id="view-order">
+    <h1>Was backen wir?</h1>
+    <p class="lede">Bestell direkt vom Handy. Die Küche sieht deine Bestellung sofort.</p>
+
+    <div class="alert" id="closed" role="alert" hidden>
+      <span aria-hidden="true">!</span>
+      <div><strong id="closedTitle">Gerade keine Bestellung möglich</strong><span id="closedText"></span></div>
+    </div>
+
+    <form id="orderForm" novalidate>
+      <section class="block">
+        <div class="block-head"><span class="step" aria-hidden="true">01</span><h2><label for="name">Dein Name</label></h2></div>
+        <input id="name" type="text" maxlength="24" autocomplete="given-name" placeholder="z.B. Anna">
+        <div class="foot"><span id="nameCount">0 / 24</span></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <span class="step" aria-hidden="true">02</span><h2>Pizza</h2>
+          <span class="aside" id="doughHint"></span>
+        </div>
+        <div class="grid" id="pizzas" role="group" aria-label="Pizza"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><span class="step" aria-hidden="true">03</span><h2>Sauce</h2></div>
+        <div class="chips" id="sauces" role="group" aria-label="Sauce"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><span class="step" aria-hidden="true">04</span><h2>Belag</h2></div>
+        <div class="chips" id="toppings" role="group" aria-label="Belag"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><span class="step" aria-hidden="true">05</span><h2><label for="note">Notiz für die Küche</label></h2><span class="aside" id="noteCount">0 / 160</span></div>
+        <textarea id="note" maxlength="160" rows="2" placeholder="z.B. extra knusprig, ohne Oregano…"></textarea>
+      </section>
+
+      <div class="alert" id="refusal" role="alert" hidden><span aria-hidden="true">!</span><div id="refusalText"></div></div>
+    </form>
+  </section>
+
+  <section id="view-status" hidden>
+    <h1>Deine Bestellung</h1>
+    <p class="lede">Aktualisiert sich von selbst, solange diese Seite offen ist.</p>
+
+    <div class="big" id="mine" hidden>
+      <div class="num" id="mineNumber">#000</div>
+      <p class="ticket-pizza" id="minePizza"></p>
+      <p id="mineState"></p>
+    </div>
+    <p class="empty" id="mineEmpty" hidden>Du hast noch nichts bestellt.</p>
+
+    <div class="block">
+      <div class="block-head"><h2>Alle Bestellungen</h2><span class="aside" id="openCount"></span></div>
+      <div id="orders" aria-live="polite"></div>
+      <p class="empty" id="ordersEmpty" hidden>Noch keine Bestellung heute.</p>
+    </div>
+  </section>
 </main>
+
+<footer class="bottom">
+  <nav class="tabs" role="tablist" aria-label="Ansicht">
+    <button class="tab" id="tab-order" type="button" role="tab" aria-selected="true" aria-controls="view-order">Bestellen</button>
+    <button class="tab" id="tab-status" type="button" role="tab" aria-selected="false" aria-controls="view-status">Status</button>
+  </nav>
+
+  <div class="dock" id="dock">
+    <div class="dock-inner">
+      <div class="summary">
+        <div class="summary-line" id="sumLine">Noch keine Pizza gewählt</div>
+        <div class="summary-detail" id="sumDetail"></div>
+      </div>
+      <button class="buy" id="buy" type="button" disabled>Bestellen</button>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var NAME_MAX = 24;
+  var NOTE_MAX = 160;
+  var POLL_MS = 2000;
+  var MENU_MS = 20000;
+
+  var code = new URLSearchParams(location.search).get("k") || "";
+  var $ = function (id) { return document.getElementById(id); };
+
+  var DIETS = { VEGAN: "Vegan", VEGETARIAN: "Vegetarisch", NONE: "" };
+  var ALLERGEN_LABELS = { LACTOSE: "Laktose", NUTS: "Nüsse", GLUTEN: "Gluten", SOY: "Soja" };
+
+  var menu = null;
+  var orders = [];
+  var sauce = "";
+  var toppings = [];
+  var busy = false;
+  var idemKey = null;
+  var mine = Number(localStorage.getItem("pizzaOrderNumber")) || null;
+  var statusTimer = null;
+
+  // ─── Netz ────────────────────────────────────────────────────────────────
+
+  function api(path) { return path + (path.indexOf("?") < 0 ? "?" : "&") + "k=" + encodeURIComponent(code); }
+
+  function getJson(path) {
+    return fetch(api(path), { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 403) throw new Error("Kein Zugang. Bitte den QR-Code auf dem Tablet neu scannen.");
+        if (r.status === 429) throw new Error("Zu viele Anfragen. Bitte kurz warten.");
+        if (!r.ok) throw new Error("Das Tablet antwortet gerade nicht.");
+        return r.json();
+      });
+  }
+
+  function connected(ok) {
+    var node = $("connection");
+    node.textContent = ok ? "verbunden" : "keine Verbindung";
+    node.style.color = ok ? "" : "var(--danger)";
+  }
+
+  // ─── Menü zeichnen ───────────────────────────────────────────────────────
+  // Alles vom Tablet landet über textContent in der Seite: keine Fremddaten in innerHTML.
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function dietTag(diet) {
+    var label = DIETS[diet] || "";
+    return label ? el("span", "tag", label) : null;
+  }
+
+  function allergenTags(allergens) {
+    return (allergens || []).map(function (a) {
+      var mark = el("span", "tag", a.charAt(0));
+      mark.title = "Enthält " + (ALLERGEN_LABELS[a] || a);
+      return mark;
+    });
+  }
+
+  function sameSet(a, b) {
+    if (a.length !== b.length) return false;
+    var set = new Set(b);
+    return a.every(function (item) { return set.has(item); });
+  }
+
+  /** Die gewählte Pizza: ein Preset, wenn Sauce und Belag genau dazu passen, sonst Eigenkreation. */
+  function chosenPreset() {
+    if (!menu) return null;
+    return menu.presets.find(function (p) {
+      return p.sauce === sauce && sameSet(p.toppings, toppings);
+    }) || null;
+  }
+
+  function chosenName() { return (chosenPreset() || {}).name || "Eigenkreation"; }
+
+  function isOut(name) { return menu != null && (menu.soldOut || []).indexOf(name) >= 0; }
+
+  function choosePreset(p) {
+    sauce = p.sauce;
+    toppings = p.toppings.slice();
+    clearRefusal();
+    renderMenu();
+  }
+
+  function renderMenu() {
+    if (!menu) return;
+
+    $("doughHint").textContent = menu.available == null
+      ? ""
+      : (menu.available > 0
+        ? "Noch " + menu.available + (menu.available === 1 ? " Pizza" : " Pizzen")
+        : "Teig ist alle");
+
+    var grid = $("pizzas");
+    grid.replaceChildren();
+    menu.presets.forEach(function (p) {
+      var out = (p.soldOut || []).length > 0;
+      var card = el("button", "card");
+      card.type = "button";
+      card.disabled = out;
+      card.setAttribute("aria-pressed", String(!out && p.sauce === sauce && sameSet(p.toppings, toppings)));
+      card.append(el("span", "card-name", p.name));
+      card.append(el("span", "card-desc",
+        out ? "Heute aus: " + p.soldOut.join(", ") : p.sauce + " · " + (p.toppings.join(", ") || "—")));
+      var foot = el("span", "card-foot");
+      var tag = dietTag(p.diet);
+      if (tag) foot.append(tag);
+      allergenTags(p.allergens).forEach(function (t) { foot.append(t); });
+      if (out) foot.append(el("span", "tag out", "heute aus"));
+      card.append(foot);
+      card.addEventListener("click", function () { choosePreset(p); });
+      grid.append(card);
+    });
+
+    var custom = el("button", "card");
+    custom.type = "button";
+    custom.setAttribute("aria-pressed", String(!chosenPreset() && (sauce !== "" || toppings.length > 0)));
+    custom.append(el("span", "card-name", "Eigenkreation"));
+    custom.append(el("span", "card-desc", "Sauce und Belag frei wählen"));
+    custom.addEventListener("click", function () {
+      sauce = "";
+      toppings = [];
+      clearRefusal();
+      renderMenu();
+    });
+    grid.append(custom);
+
+    renderChoices();
+  }
+
+  function renderChoices() {
+    if (!menu) return;
+
+    var sauces = $("sauces");
+    sauces.replaceChildren();
+    menu.sauces.forEach(function (s) {
+      var chip = el("button", "chip", s.name);
+      chip.type = "button";
+      chip.disabled = isOut(s.name);
+      chip.setAttribute("aria-pressed", String(s.name === sauce));
+      chip.addEventListener("click", function () {
+        sauce = sauce === s.name ? "" : s.name;
+        clearRefusal();
+        renderMenu();
+      });
+      sauces.append(chip);
+    });
+
+    var list = $("toppings");
+    list.replaceChildren();
+    menu.toppings.forEach(function (t) {
+      var on = toppings.indexOf(t.name) >= 0;
+      var chip = el("button", "chip", (on ? "✓ " : "+ ") + t.name);
+      chip.type = "button";
+      chip.disabled = isOut(t.name);
+      chip.setAttribute("aria-pressed", String(on));
+      chip.addEventListener("click", function () {
+        toppings = on
+          ? toppings.filter(function (name) { return name !== t.name; })
+          : toppings.concat(t.name);
+        clearRefusal();
+        renderMenu();
+      });
+      list.append(chip);
+    });
+
+    updateDock();
+    updateClosed();
+  }
+
+  function updateDock() {
+    var picked = sauce !== "" || toppings.length > 0;
+    $("sumLine").textContent = picked ? "1 × " + chosenName() : "Noch keine Pizza gewählt";
+    // Wie die Beschreibung auf dem Tablet: Sauce, dann der Belag als Liste. "Tomate · Zwiebeln · Rucola"
+    // liest sich wie drei Saucen.
+    $("sumDetail").textContent = picked
+      ? (sauce ? sauce + " · " : "") + toppings.join(", ")
+      : "";
+    updateBuy();
+  }
+
+  function updateBuy() {
+    $("buy").disabled = busy ||
+      closedReason() !== null ||
+      !$("name").value.trim() ||
+      (sauce === "" && toppings.length === 0);
+  }
+
+  /** Was die Küche gerade gar nicht annimmt; null = bestellbar. */
+  function closedReason() {
+    if (!menu) return "Das Menü lädt noch.";
+    if (menu.available === 0) return "Der Teig ist alle, für heute gibt es keine Pizza mehr.";
+    if (menu.maxOpenOrders != null && menu.openOrders >= menu.maxOpenOrders) {
+      return "Gerade sind schon " + menu.maxOpenOrders + " Bestellungen offen. Bitte in ein paar Minuten nochmal.";
+    }
+    return null;
+  }
+
+  function updateClosed() {
+    var reason = closedReason();
+    var box = $("closed");
+    box.hidden = reason === null;
+    $("closedTitle").textContent = "Gerade keine Bestellung möglich";
+    if (reason !== null) $("closedText").textContent = " " + reason;
+    updateBuy();
+  }
+
+  // ─── Bestellen ───────────────────────────────────────────────────────────
+
+  function showRefusal(message) {
+    $("refusalText").textContent = message;
+    $("refusal").hidden = false;
+  }
+
+  function clearRefusal() { $("refusal").hidden = true; }
+
+  function submit() {
+    if (busy || closedReason() !== null) return;
+
+    var name = $("name").value.trim();
+    if (!name) {
+      showRefusal("Bitte einen Namen eingeben.");
+      $("name").focus();
+      return;
+    }
+    if (sauce === "" && toppings.length === 0) {
+      showRefusal("Bitte eine Pizza wählen.");
+      return;
+    }
+
+    busy = true;
+    updateBuy();
+    $("buy").textContent = "Sendet …";
+    // Ein Retry ist eine Bestellung: derselbe Key bis zum Erfolg oder bis die Küche ablehnt.
+    if (!idemKey) idemKey = "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+    fetch(api("/api/orders"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idemKey },
+      body: JSON.stringify({
+        customer: name,
+        note: $("note").value,
+        pizza: { sauce: sauce, toppings: toppings }
+      })
+    })
+      .then(function (r) {
+        return r.json().catch(function () { return null; }).then(function (data) {
+          return { status: r.status, data: data };
+        });
+      })
+      .then(function (answer) {
+        if (answer.status === 201 || answer.status === 200) {
+          if (answer.status === 201) {
+            mine = answer.data.order.number;
+            localStorage.setItem("pizzaOrderNumber", String(mine));
+          }
+          idemKey = null;
+          resetForm();
+          // Der Teig ist jetzt einer weniger; die Zahl im Kopf soll stimmen, wenn der Gast zurückkommt.
+          refreshMenu();
+          show("status");
+          return;
+        }
+        if (answer.status === 429 && !(answer.data && answer.data.reason)) {
+          showRefusal("Zu viele Anfragen. Bitte kurz warten.");
+          return;
+        }
+        showRefusal((answer.data && answer.data.message) || "Das hat nicht geklappt. Bitte nochmal.");
+        // Eine Ablehnung ist keine offene Bestellung: der nächste Versuch bekommt einen neuen Key.
+        idemKey = null;
+        refreshMenu();
+      })
+      .catch(function () {
+        showRefusal("Keine Verbindung zum Tablet. Bist du noch im selben WLAN?");
+        connected(false);
+      })
+      .then(function () {
+        busy = false;
+        $("buy").textContent = "Bestellen";
+        updateBuy();
+      });
+  }
+
+  function resetForm() {
+    $("name").value = "";
+    $("note").value = "";
+    $("nameCount").textContent = "0 / " + NAME_MAX;
+    $("noteCount").textContent = "0 / " + NOTE_MAX;
+    sauce = "";
+    toppings = [];
+    clearRefusal();
+    if (menu) renderMenu();
+  }
+
+  // ─── Status ──────────────────────────────────────────────────────────────
+
+  function pad(number) { return "#" + String(number).padStart(3, "0"); }
+
+  /**
+   * Was der Gast liest. Die Position gibt es nur bei "Wartet": `ahead` zählt offene Bestellungen von vorher,
+   * und die stehen bei einer Pizza im Ofen ebenfalls noch in der Schlange — "noch 3 vor dir" wäre dort falsch.
+   */
+  function aheadLine(order) {
+    if (order.status === "READY") return order.statusLabel + " — hol sie dir ab.";
+    if (order.status === "BAKING") return order.statusLabel;
+    if (order.ahead === 0) return order.statusLabel + " · du bist dran";
+    return order.statusLabel + " · noch " + order.ahead + (order.ahead === 1 ? " Pizza" : " Pizzen") + " vor dir";
+  }
+
+  function ticket(order) {
+    var card = el("div", "ticket");
+    if (mine !== null && order.number === mine) card.classList.add("mine");
+    if (order.status === "READY") card.classList.add("ready");
+    card.append(el("span", "num", pad(order.number)));
+    var body = el("div", "ticket-body");
+    body.append(el("div", "ticket-pizza", order.pizza));
+    body.append(el("div", "ticket-status", aheadLine(order)));
+    card.append(body);
+    return card;
+  }
+
+  function renderStatus() {
+    var list = $("orders");
+    list.replaceChildren();
+    orders.forEach(function (order) { list.append(ticket(order)); });
+
+    $("ordersEmpty").hidden = orders.length > 0;
+    var open = orders.filter(function (o) { return o.status !== "READY"; }).length;
+    $("openCount").textContent = open > 0 ? open + " offen" : "alles fertig";
+
+    var myOrder = mine === null ? null : orders.find(function (o) { return o.number === mine; });
+    $("mine").hidden = !myOrder;
+    if (!myOrder) {
+      // Auch eine gemerkte Nummer kann verschwinden: die Küche hat "alle Bestellungen gelöscht", oder der
+      // Abend ist vorbei. Ein leerer Platz ohne Satz sähe nach einem Fehler der Seite aus.
+      $("mineEmpty").hidden = false;
+      $("mineEmpty").textContent = mine === null
+        ? "Du hast noch nichts bestellt."
+        : "Deine letzte Bestellung ist nicht mehr auf der Liste.";
+      return;
+    }
+
+    $("mineEmpty").hidden = true;
+    $("mine").classList.toggle("ready", myOrder.status === "READY");
+    $("mineNumber").textContent = pad(myOrder.number);
+    $("minePizza").textContent = myOrder.pizza;
+    $("mineState").textContent = aheadLine(myOrder);
+  }
+
+  function refreshOrders() {
+    if (document.hidden) return;
+    getJson("/api/orders")
+      .then(function (data) {
+        orders = data.orders || [];
+        connected(true);
+        renderStatus();
+      })
+      .catch(function (e) {
+        connected(false);
+        $("ordersEmpty").hidden = false;
+        $("ordersEmpty").textContent = e.message;
+      });
+  }
+
+  function refreshMenu() {
+    if (document.hidden) return;
+    getJson("/api/menu")
+      .then(function (data) {
+        menu = data;
+        connected(true);
+        renderMenu();
+      })
+      .catch(function (e) {
+        connected(false);
+        if (menu) return;
+        // Ohne Menü gibt es nichts zu bestellen; der Grund gehört auf den Schirm, nicht in die Konsole.
+        $("closed").hidden = false;
+        $("closedTitle").textContent = "Menü nicht geladen";
+        $("closedText").textContent = " " + e.message;
+        $("buy").disabled = true;
+      });
+  }
+
+  // ─── Ansichten ───────────────────────────────────────────────────────────
+
+  function show(view) {
+    var ordering = view === "order";
+    $("view-order").hidden = !ordering;
+    $("view-status").hidden = ordering;
+    $("dock").hidden = !ordering;
+    $("tab-order").setAttribute("aria-selected", String(ordering));
+    $("tab-status").setAttribute("aria-selected", String(!ordering));
+    $("tab-order").tabIndex = ordering ? 0 : -1;
+    $("tab-status").tabIndex = ordering ? -1 : 0;
+    window.scrollTo(0, 0);
+
+    clearInterval(statusTimer);
+    if (ordering) {
+      // Zurück zum Bestellen: Teig, Ausverkauftes und die Auslastung haben sich in der Zwischenzeit geändert.
+      refreshMenu();
+    } else {
+      refreshOrders();
+      statusTimer = setInterval(refreshOrders, POLL_MS);
+    }
+  }
+
+  // ─── Start ───────────────────────────────────────────────────────────────
+
+  $("name").addEventListener("input", function () {
+    // maxlength greift nur beim Tippen, nicht beim Einfügen von der Zwischenablage; die App kürzt genauso.
+    if ($("name").value.length > NAME_MAX) $("name").value = $("name").value.slice(0, NAME_MAX);
+    $("nameCount").textContent = $("name").value.length + " / " + NAME_MAX;
+    clearRefusal();
+    updateBuy();
+  });
+  $("note").addEventListener("input", function () {
+    $("noteCount").textContent = $("note").value.length + " / " + NOTE_MAX;
+  });
+  $("buy").addEventListener("click", submit);
+  $("orderForm").addEventListener("submit", function (event) { event.preventDefault(); submit(); });
+  $("tab-order").addEventListener("click", function () { show("order"); });
+  $("tab-status").addEventListener("click", function () { show("status"); });
+
+  // Zurück im Vordergrund: sofort nachsehen, statt bis zum nächsten Intervall zu warten.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (!$("view-status").hidden) refreshOrders();
+    refreshMenu();
+  });
+
+  refreshMenu();
+  setInterval(refreshMenu, MENU_MS);
+
+  if (mine !== null) show("status");
+})();
+</script>
 </html>

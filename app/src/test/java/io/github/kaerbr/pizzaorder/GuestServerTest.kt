@@ -11,6 +11,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -97,6 +98,27 @@ class GuestServerTest {
         json.decodeFromString(GuestReceipt.serializer(), text).order
 
     // ─── Routes ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun thePageIsOneFileWithNoExternalAssets() {
+        // A guest's phone has no route to the internet at a pizza party: a stylesheet from a CDN would simply
+        // not load, and the page must not need a build step to be readable.
+        val page = File("src/main/assets/guest/index.html")
+            .takeIf { it.exists() } ?: File("app/src/main/assets/guest/index.html")
+        val html = page.readText()
+
+        assertTrue(html.contains("<form id=\"orderForm\""))
+        assertTrue(html.contains("/api/orders"))
+        assertTrue("Name ist auf 24 Zeichen begrenzt", html.contains("maxlength=\"24\""))
+        assertTrue("Notiz ist auf 160 Zeichen begrenzt", html.contains("maxlength=\"160\""))
+        assertFalse("Kein externes Skript", html.contains("<script src"))
+        assertFalse("Kein externes Stylesheet", html.contains("<link rel=\"stylesheet\""))
+        // Guest strings (name, note) reach the page through textContent. An HTML sink would execute them,
+        // which is stored XSS on the tablet the kitchen is looking at.
+        assertFalse("Kein innerHTML-Sink", html.contains("innerHTML ="))
+        assertFalse("Kein insertAdjacentHTML", html.contains("insertAdjacentHTML"))
+        assertFalse("Kein document.write", html.contains("document.write"))
+    }
 
     @Test
     fun thePageNeedsTheCodeAndThenArrives() = runBlocking {
