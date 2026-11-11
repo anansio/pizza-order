@@ -12,6 +12,8 @@ import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -77,11 +79,13 @@ class GuestServerTest {
         method: String = "GET",
         body: String? = null,
         key: String? = null,
+        token: String? = null,
     ): Answer {
         val connection = URI("http://127.0.0.1:$port$path").toURL().openConnection() as HttpURLConnection
         connection.requestMethod = method
         connection.setRequestProperty("Accept", "application/json")
         key?.let { connection.setRequestProperty("Idempotency-Key", it) }
+        token?.let { connection.setRequestProperty("X-Guest-Token", it) }
         if (body != null) {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
@@ -97,6 +101,18 @@ class GuestServerTest {
     private fun guestOrder(text: String): GuestOrder =
         json.decodeFromString(GuestReceipt.serializer(), text).order
 
+    private fun receipt(answer: Answer): GuestReceipt =
+        json.decodeFromString(GuestReceipt.serializer(), answer.body)
+
+    private fun guestOrders(text: String): GuestOrdersEnvelope =
+        json.decodeFromString(GuestOrdersEnvelope.serializer(), text)
+
+    private fun SubmitResult.placed(): Placed = assertTrue(this is Placed).let { this as Placed }
+
+    /** The status page as that phone sees it, with the token it got when it ordered. */
+    private fun statusOf(port: Int, token: String): GuestOrdersEnvelope =
+        guestOrders(request(port, "/api/orders?k=$code", token = token).body)
+
     // ─── Routes ─────────────────────────────────────────────────────────────
 
     @Test
@@ -109,10 +125,16 @@ class GuestServerTest {
 
         assertTrue(html.contains("<form id=\"orderForm\""))
         assertTrue(html.contains("/api/orders"))
+        // Die Seite schickt ihr Geräte-Token mit; sonst bekäme sie keine eigene Bestellung zurück.
+        assertTrue("Token-Header", html.contains("X-Guest-Token"))
+        // Die Warteschlange kommt als Zahl vom Server, nicht aus einer Liste, die die Seite selbst zählt.
+        assertTrue("Warteschlange aus der Antwort", html.contains("data.open"))
         assertTrue("Name ist auf 24 Zeichen begrenzt", html.contains("maxlength=\"24\""))
         assertTrue("Notiz ist auf 160 Zeichen begrenzt", html.contains("maxlength=\"160\""))
         assertFalse("Kein externes Skript", html.contains("<script src"))
         assertFalse("Kein externes Stylesheet", html.contains("<link rel=\"stylesheet\""))
+        // Keine Liste fremder Bestellungen mehr: die Seite hat für andere Gäste gar keine Ansicht.
+        assertFalse("Keine Fremdliste", html.contains("Alle Bestellungen"))
         // Guest strings (name, note) reach the page through textContent. An HTML sink would execute them,
         // which is stored XSS on the tablet the kitchen is looking at.
         assertFalse("Kein innerHTML-Sink", html.contains("innerHTML ="))
@@ -175,15 +197,93 @@ class GuestServerTest {
     fun twoGuestsGetTwoNumbersAndTheSecondSeesOneAhead() = runBlocking {
         val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
 
-        val first = guestOrder(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna")).body)
-        val second = guestOrder(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Bene")).body)
+        val anna = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna")))
+        val bene = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Bene")))
 
-        assertEquals(listOf(1, 2), listOf(first.number, second.number))
-        assertEquals(1, second.ahead)
+        assertEquals(listOf(1, 2), listOf(anna.order.number, bene.order.number))
+        // Bene bestellt nach Anna, also steht genau eine Pizza vor ihm.
+        assertEquals(1, statusOf(port, bene.token).mine.single().ahead)
+        assertEquals(0, statusOf(port, anna.token).mine.single().ahead)
+        assertEquals(2, statusOf(port, bene.token).open)
+    }
 
-        val list = json.decodeFromString(GuestOrdersEnvelope.serializer(), request(port, "/api/orders?k=$code").body)
-        assertEquals(2, list.orders.size)
-        assertEquals(listOf(2, 1), list.orders.map { it.number })
+    // ─── A guest sees their own pizza and no one else's ─────────────────────
+
+    @Test
+    fun aGuestNeverReadsAnotherGuestsPizza() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val anna = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna")))
+        request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Bene", toppings = listOf("Salami", "Käse")))
+
+        val answer = request(port, "/api/orders?k=$code", token = anna.token)
+
+        val view = guestOrders(answer.body)
+        assertEquals(1, view.mine.size)
+        assertEquals("Margherita", view.mine.single().pizza)
+        // Die Zahl der offenen Bestellungen sieht Anna, die Pizza von Bene nicht — auch nicht im rohen Body.
+        assertEquals(2, view.open)
+        assertFalse("Fremde Pizza im Body", answer.body.contains("Salami"))
+        assertFalse("Fremder Name im Body", answer.body.contains("Bene"))
+    }
+
+    @Test
+    fun aPhoneWithoutATokenGetsNoOrdersButStillTheQueueLength() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+        request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))
+
+        val view = guestOrders(request(port, "/api/orders?k=$code").body)
+
+        assertTrue(view.mine.isEmpty())
+        assertEquals(1, view.open)
+        assertNull("Ohne eigene offene Bestellung gibt es keine Position", view.ahead)
+    }
+
+    @Test
+    fun theTokenComesBackAndBothOrdersLandInTheSameList() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+
+        val token = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))).token
+        assertEquals(32, token.length)
+
+        // Dieselbe Karte, zweite Bestellung: das Handy schickt sein Token mit.
+        request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna", toppings = listOf("Oliven")), token = token)
+
+        val view = statusOf(port, token)
+        assertEquals(listOf(2, 1), view.mine.map { it.number })
+        assertEquals(2, view.open)
+    }
+
+    @Test
+    fun aTokenWeDidNotHandOutIsIgnoredRatherThanTrusted() = runBlocking {
+        val port = start(service(MenuConfig.Standard.menu.withDoughToday(9)).also { it.load() })
+        val anna = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna")))
+
+        // Ein geratenes Token hat nicht die Form, die wir vergeben — das Handy bekommt ein eigenes statt Annas Liste.
+        val forged = request(
+            port, "/api/orders?k=$code", method = "POST",
+            body = body(customer = "Bene"), token = "anna",
+        )
+        val benesToken = receipt(forged).token
+
+        assertNotEquals(anna.token, benesToken)
+        assertEquals(1, statusOf(port, benesToken).mine.size)
+    }
+
+    @Test
+    fun aTabletOrderCountsInTheQueueButBelongsToNobody() = runBlocking {
+        val service = service(MenuConfig.Standard.menu.withDoughToday(9))
+        service.load()
+        val port = start(service)
+
+        // Am Tablet aufgenommen, ohne Token: sie steht in der Schlange, aber auf keinem Handy als "meine".
+        service.submit("Küche", pizza(), "", guestToken = null).placed()
+        val token = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))).token
+
+        val view = statusOf(port, token)
+        assertEquals(listOf(2), view.mine.map { it.number })
+        assertEquals(1, view.mine.single().ahead)
+        assertEquals(2, view.open)
     }
 
     @Test
@@ -210,6 +310,7 @@ class GuestServerTest {
         assertEquals(201, first.status)
         // 200, not 201: the order exists, the phone only repeated itself.
         assertEquals(200, retry.status)
+        // Byte for byte the same answer, the token included: a retry must not mint a second identity.
         assertEquals(first.body, retry.body)
         // One dough ball, one printout, one entry on the tablet.
         assertEquals(1, request(port, "/api/menu?k=$code").body
@@ -353,7 +454,7 @@ class GuestServerTest {
         service.load()
         val port = start(service)
 
-        request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))
+        val token = receipt(request(port, "/api/orders?k=$code", method = "POST", body = body(customer = "Anna"))).token
 
         // One service: the kitchen screen and the phone see the same order, number and dough.
         val order = service.state.value.orders.single()
@@ -365,9 +466,9 @@ class GuestServerTest {
         assertEquals(1, printer.markups.size)
 
         service.advance(order)
-        val list = json.decodeFromString(GuestOrdersEnvelope.serializer(), request(port, "/api/orders?k=$code").body)
-        assertEquals("BAKING", list.orders.single().status)
-        assertEquals(0, list.orders.single().ahead)
+        val view = statusOf(port, token)
+        assertEquals("BAKING", view.mine.single().status)
+        assertEquals(0, view.mine.single().ahead)
     }
 
     @Test

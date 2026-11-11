@@ -764,7 +764,8 @@ private fun GuestSetting(
                 // On the screen, not only on paper: a DHCP lease outlives yesterday's printout, and the panel
                 // picks up a changed address while it is open.
                 GuestQrCode(url, Modifier.size(220.dp).background(Color.White, RoundedCornerShape(12.dp)).padding(8.dp))
-                Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Kopierbar statt nur lesbar: der Weg zum Gast führt über einen Messenger, nicht über Abtippen.
+                GuestUrl(url)
                 // The same code on paper: the tablet can stay in the kitchen while a card lies on the table.
                 OutlinedButton(
                     onClick = { onPrintCard(url) },

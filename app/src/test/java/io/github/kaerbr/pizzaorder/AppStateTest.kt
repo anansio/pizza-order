@@ -79,4 +79,11 @@ class AppStateTest {
         val json = """{"customer":"Anna","pizza":{"name":"Margherita","sauce":{"name":"Tomate"},"toppings":[]}}"""
         assertTrue(Json.decodeFromString(Order.serializer(), json).printed)
     }
+
+    // orders.json from before `guestToken`: taken at the tablet, so they belong on no phone's list.
+    @Test
+    fun oldOrdersBelongToNoPhone() {
+        val json = """{"customer":"Anna","pizza":{"name":"Margherita","sauce":{"name":"Tomate"},"toppings":[]}}"""
+        assertNull(Json.decodeFromString(Order.serializer(), json).guestToken)
+    }
 }

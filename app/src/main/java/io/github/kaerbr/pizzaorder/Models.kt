@@ -78,6 +78,9 @@ data class Order(
     // False until the printer took it, on disk so a lost printout survives an app restart. The default is
     // for orders.json files from before this field: those orders are long past.
     val printed: Boolean = true,
+    // The phone that placed it; null for an order taken at the tablet, and for orders.json from before this
+    // field. Only decides which rows a guest's status page gets — never printed, never shown to anyone else.
+    val guestToken: String? = null,
 ) {
     val status: OrderStatus get() = when {
         completedAt != null -> OrderStatus.READY

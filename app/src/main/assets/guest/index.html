@@ -159,7 +159,6 @@
     margin-top: 14px; padding: 16px; background: var(--surface);
     border: 1px solid var(--line); border-radius: var(--radius);
   }
-  .ticket.mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
   .ticket.ready { background: var(--ready-bg); border-color: var(--ready-ink); }
   .num { font-family: var(--font-display); font-size: 26px; min-width: 4.2ch; }
   .ticket-body { flex: 1; min-width: 0; }
@@ -233,17 +232,12 @@
     <h1>Deine Bestellung</h1>
     <p class="lede">Aktualisiert sich von selbst, solange diese Seite offen ist.</p>
 
-    <div class="big" id="mine" hidden>
-      <div class="num" id="mineNumber">#000</div>
-      <p class="ticket-pizza" id="minePizza"></p>
-      <p id="mineState"></p>
-    </div>
+    <div id="mine" hidden></div>
     <p class="empty" id="mineEmpty" hidden>Du hast noch nichts bestellt.</p>
 
-    <div class="block">
-      <div class="block-head"><h2>Alle Bestellungen</h2><span class="aside" id="openCount"></span></div>
-      <div id="orders" aria-live="polite"></div>
-      <p class="empty" id="ordersEmpty" hidden>Noch keine Bestellung heute.</p>
+    <div class="block" id="queue" hidden>
+      <div class="block-head"><h2>Warteschlange</h2></div>
+      <p id="queueLine"></p>
     </div>
   </section>
 </main>
@@ -282,19 +276,28 @@
 
   var menu = null;
   var orders = [];
+  var ahead = null;
+  var openCount = 0;
   var sauce = "";
   var toppings = [];
   var busy = false;
   var idemKey = null;
-  var mine = Number(localStorage.getItem("pizzaOrderNumber")) || null;
+  // Das eigene Geräte-Token: der Server hängt es an jede Bestellung und gibt es beim Bestellen zurück.
+  // Ohne es zeigt die Statusseite keine eigene Pizza — und niemals eine fremde.
+  var token = localStorage.getItem("pizzaGuestToken") || "";
   var statusTimer = null;
 
   // ─── Netz ────────────────────────────────────────────────────────────────
 
   function api(path) { return path + (path.indexOf("?") < 0 ? "?" : "&") + "k=" + encodeURIComponent(code); }
 
+  /** Der Header, der dieses Handy benennt. Er entscheidet nur, was zurückkommt — nicht, wer bestellen darf. */
+  function guestHeaders() {
+    return token ? { "X-Guest-Token": token } : {};
+  }
+
   function getJson(path) {
-    return fetch(api(path), { headers: { Accept: "application/json" }, cache: "no-store" })
+    return fetch(api(path), { headers: { Accept: "application/json", ...guestHeaders() }, cache: "no-store" })
       .then(function (r) {
         if (r.status === 403) throw new Error("Kein Zugang. Bitte den QR-Code auf dem Tablet neu scannen.");
         if (r.status === 429) throw new Error("Zu viele Anfragen. Bitte kurz warten.");
@@ -510,7 +513,7 @@
 
     fetch(api("/api/orders"), {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": idemKey },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idemKey, ...guestHeaders() },
       body: JSON.stringify({
         customer: name,
         note: $("note").value,
@@ -524,9 +527,10 @@
       })
       .then(function (answer) {
         if (answer.status === 201 || answer.status === 200) {
-          if (answer.status === 201) {
-            mine = answer.data.order.number;
-            localStorage.setItem("pizzaOrderNumber", String(mine));
+          // Auch beim Retry (200) steht das Token im Body: dasselbe Gerät, dieselbe Liste.
+          if (answer.data && answer.data.token) {
+            token = answer.data.token;
+            localStorage.setItem("pizzaGuestToken", token);
           }
           idemKey = null;
           resetForm();
@@ -583,7 +587,6 @@
 
   function ticket(order) {
     var card = el("div", "ticket");
-    if (mine !== null && order.number === mine) card.classList.add("mine");
     if (order.status === "READY") card.classList.add("ready");
     card.append(el("span", "num", pad(order.number)));
     var body = el("div", "ticket-body");
@@ -593,46 +596,74 @@
     return card;
   }
 
+  /**
+   * Die Warteschlange als Zahl, nie als Liste: wie viele Pizzen vor dieser hier noch kommen und wie viele
+   * gerade offen sind. Wer welche Pizza bestellt hat, geht niemanden am Tisch etwas an.
+   *
+   * Ohne eigene offene Bestellung gibt es keine Position (`ahead` ist null), aber die Zahl der offenen
+   * Bestellungen ist trotzdem die Auskunft, die ein Gast vor dem Bestellen sucht.
+   */
+  function queueLine(myOpen) {
+    if (myOpen !== null && myOpen.status === "READY") return "Deine Pizza ist fertig.";
+    if (openCount === 0) return "";
+    var offen = openCount === 1 ? "1 offene Bestellung" : openCount + " offene Bestellungen";
+    if (ahead === null) return offen;
+    if (ahead === 0) return "Du bist dran · " + offen;
+    return "Noch " + ahead + (ahead === 1 ? " Pizza" : " Pizzen") + " vor dir · " + offen;
+  }
+
   function renderStatus() {
-    var list = $("orders");
-    list.replaceChildren();
-    orders.forEach(function (order) { list.append(ticket(order)); });
+    // "mine" enthält ausschließlich die eigenen Bestellungen: der Server schickt nichts anderes.
+    var box = $("mine");
+    box.replaceChildren();
+    box.hidden = orders.length === 0;
 
-    $("ordersEmpty").hidden = orders.length > 0;
-    var open = orders.filter(function (o) { return o.status !== "READY"; }).length;
-    $("openCount").textContent = open > 0 ? open + " offen" : "alles fertig";
-
-    var myOrder = mine === null ? null : orders.find(function (o) { return o.number === mine; });
-    $("mine").hidden = !myOrder;
-    if (!myOrder) {
-      // Auch eine gemerkte Nummer kann verschwinden: die Küche hat "alle Bestellungen gelöscht", oder der
-      // Abend ist vorbei. Ein leerer Platz ohne Satz sähe nach einem Fehler der Seite aus.
-      $("mineEmpty").hidden = false;
-      $("mineEmpty").textContent = mine === null
-        ? "Du hast noch nichts bestellt."
-        : "Deine letzte Bestellung ist nicht mehr auf der Liste.";
-      return;
+    // Das älteste offene zählt für die Position; sind alle fertig, zeigt die große Karte die letzte.
+    var open = orders.filter(function (o) { return o.status !== "READY"; });
+    var head = open.length > 0 ? open[open.length - 1] : orders[0];
+    if (head) {
+      var card = el("div", "big" + (head.status === "READY" ? " ready" : ""));
+      card.append(el("div", "num", pad(head.number)));
+      card.append(el("p", "ticket-pizza", head.pizza));
+      card.append(el("p", "", aheadLine(head)));
+      box.append(card);
+      // Weitere eigene Bestellungen darunter, die neueste zuerst.
+      orders.filter(function (o) { return o !== head; })
+        .forEach(function (o) { box.append(ticket(o)); });
     }
 
-    $("mineEmpty").hidden = true;
-    $("mine").classList.toggle("ready", myOrder.status === "READY");
-    $("mineNumber").textContent = pad(myOrder.number);
-    $("minePizza").textContent = myOrder.pizza;
-    $("mineState").textContent = aheadLine(myOrder);
+    if (orders.length === 0) {
+      // Ein gemerktes Token kann ins Leere zeigen: die Küche hat "alle Bestellungen gelöscht", oder der Abend
+      // ist vorbei. Ein leerer Platz ohne Satz sähe nach einem Fehler der Seite aus.
+      $("mineEmpty").hidden = false;
+      $("mineEmpty").textContent = token
+        ? "Deine letzte Bestellung ist nicht mehr auf der Liste."
+        : "Du hast noch nichts bestellt.";
+    } else {
+      $("mineEmpty").hidden = true;
+    }
+
+    var line = queueLine(head || null);
+    $("queue").hidden = line === "";
+    $("queueLine").textContent = line;
   }
 
   function refreshOrders() {
     if (document.hidden) return;
     getJson("/api/orders")
       .then(function (data) {
-        orders = data.orders || [];
+        orders = data.mine || [];
+        ahead = data.ahead === undefined ? null : data.ahead;
+        openCount = data.open || 0;
         connected(true);
         renderStatus();
       })
       .catch(function (e) {
         connected(false);
-        $("ordersEmpty").hidden = false;
-        $("ordersEmpty").textContent = e.message;
+        // Der Grund gehört auf den Schirm; die letzte bekannte Karte bleibt stehen, statt zu verschwinden.
+        $("mineEmpty").hidden = orders.length > 0;
+        if (orders.length === 0) $("mineEmpty").textContent = e.message;
+        $("queue").hidden = true;
       });
   }
 
@@ -705,7 +736,7 @@
   refreshMenu();
   setInterval(refreshMenu, MENU_MS);
 
-  if (mine !== null) show("status");
+  if (token) show("status");
 })();
 </script>
 </html>

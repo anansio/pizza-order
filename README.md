@@ -31,7 +31,7 @@ Gäste stellen am Tablet ihre Pizza zusammen, die Küche bekommt einen Ausdruck 
 - 🧾 **Bon auf dem Bildschirm**: Nach dem Bestellen läuft der Ausdruck auf dem Tablet so schnell ein wie aus dem Drucker
 - 📋 **Bestellliste** mit „Wartet“, „Im Ofen“ und „Fertig“, Wartezeit und Nachdrucken; was nicht gedruckt wurde, meldet das Schnellmenü rot, auch nach einem Neustart
 - 🎨 **Zwei Ausdruck-Designs**: schlichter Kassenbon oder mit Verzierung
-- 📱 **Gäste bestellen wahlweise vom eigenen Handy**: QR-Code am Tablet, das Handy öffnet die Bestellseite im WLAN — ohne App, ohne Internet. Der Gäste-Server dafür ist standardmäßig aus und wird im Admin-Panel eingeschaltet; ohne ihn bestellen Gäste wie gewohnt am Tablet
+- 📱 **Gäste bestellen wahlweise vom eigenen Handy**: QR-Code am Tablet, das Handy öffnet die Bestellseite im WLAN — ohne App, ohne Internet. Jedes Handy sieht nur die eigene Bestellung und die Warteschlange als Zahl. Der Gäste-Server dafür ist standardmäßig aus und wird im Admin-Panel eingeschaltet; ohne ihn bestellen Gäste wie gewohnt am Tablet. Siehe [Gäste bestellen vom Handy](#-gäste-bestellen-vom-handy)
 - 🪧 **QR-Bon für den Tisch**: derselbe Code gedruckt, damit das Tablet in der Küche bleiben kann
 - 📱 **QR-Codes** auf dem Ausdruck, z. B. zu einem Pizza-Witz
 - 🌗 **Aussehen**: Hell oder Dunkel und mehrere Farbpaletten, wählbar im Schnellmenü
@@ -68,6 +68,24 @@ Die meisten günstigen Bluetooth-Bondrucker sprechen ESC/POS und sollten funktio
 
 > [!IMPORTANT]
 > Die App druckt immer auf dem **ersten erreichbaren gekoppelten** Drucker. Am besten koppelst du nur einen Drucker mit dem Tablet.
+
+## 📱 Gäste bestellen vom Handy
+
+Der Gäste-Server ist standardmäßig **aus**. Im Admin-Panel unter „Gäste-Bestellung“ einschalten, Port setzen und den angezeigten Code auf dem Tablet lassen. Den QR-Code scannen Gäste mit der Handykamera; die Seite öffnet sich im Browser, ohne App und ohne Internet. Neben dem Code steht dieselbe Adresse als Text mit **„Kopieren“** — für Handys, deren Kamera nicht will, und für den Weg über einen Messenger.
+
+Voraussetzung: Handy und Tablet im **selben WLAN**. Viele Gäste-WLANs trennen Geräte voneinander (Client Isolation); dann funktioniert es nicht, und das Tablet als **Hotspot** ist der Weg daran vorbei.
+
+Was die Gäste sehen:
+
+| | |
+|---|---|
+| **Menü** | Saucen, Beläge, vordefinierte Pizzen; ausverkaufte Zutaten und der Teig-Bestand kommen vom Tablet |
+| **Eigene Bestellung** | Nummer, Pizza und Status der eigenen Bestellung, aktualisiert sich von selbst |
+| **Warteschlange** | Nur die Zahl: „Noch 2 Pizzen vor dir · 4 offene Bestellungen“ |
+
+Ein Handy sieht **nur die eigene Bestellung**. Beim ersten Bestellen bekommt es dafür ein zufälliges Token, das der Browser speichert; der Server filtert die Antwort danach. Fremde Namen, Notizen und Pizzen gehen gar nicht erst über das WLAN — auch nicht „nur zum Ausblenden“ in der Seite.
+
+Das Tablet sieht weiterhin alles: jede Gast-Bestellung landet in der normalen Bestellliste, mit Nummer, Name, Notiz und Ausdruck, als wäre sie am Tablet aufgenommen worden.
 
 ## 🔒 Admin-Panel
 

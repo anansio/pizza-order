@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -95,16 +94,11 @@ fun GuestQrScreen(
                             .background(Color.White, RoundedCornerShape(16.dp))
                             .padding(12.dp),
                     )
-                    Text(
-                        url,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    GuestUrl(url)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Handy draufhalten. Der Bon für den Tisch liegt daneben – dieselbe Adresse, nur gedruckt.",
+                        "Handy draufhalten. Bleibt das Tablet in der Küche: den Bon unten drucken und auf " +
+                            "den Tisch legen — dieselbe Adresse, nur auf Papier.",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

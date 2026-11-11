@@ -5,6 +5,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.security.MessageDigest
+import java.security.SecureRandom
 
 /**
  * What a guest's browser may see of the menu. Deliberately not [MenuConfig]: the admin half (QR links,
@@ -39,7 +40,8 @@ data class GuestPizza(
 )
 
 /**
- * One entry of the guest status page. No name, no note: every phone in the party sees this list.
+ * One entry of the guest status page: an order **the requesting phone placed itself**. No name, no note —
+ * and no other guest's pizza either, because [GuestApi] never sends a row to a phone that doesn't own it.
  *
  * [status] is the enum name (`QUEUED`) for the page to switch on, [statusLabel] the German word for people;
  * [OrderStatus] itself stays unserialized, it's derived and part of no file.
@@ -57,7 +59,12 @@ data class GuestOrder(
 
 /** The `201` body right after ordering, so the phone can show the same slip the tablet shows. */
 @Serializable
-data class GuestReceipt(val order: GuestOrder, val printout: String)
+data class GuestReceipt(
+    val order: GuestOrder,
+    val printout: String,
+    /** The phone's key for its own orders; a retry without one gets the same key back. */
+    val token: String,
+)
 
 /** Why an order was refused, in a shape the page can switch on and a person can read. */
 @Serializable
@@ -85,7 +92,10 @@ data class GuestRequest(
     val query: Map<String, List<String>> = emptyMap(),
     val headers: Map<String, String> = emptyMap(),
     val body: String = "",
-)
+) {
+    /** The phone's own key, when it sent one. Decides what [GuestApi] sends back, never what it accepts. */
+    val guestToken: String? get() = headers[GuestApi.GUEST_TOKEN_HEADER]
+}
 
 data class GuestResponse(
     val status: Int,
@@ -105,7 +115,7 @@ data class GuestResponse(
  *     GET  /            → the guest page from assets
  *     GET  /api/menu    → [GuestMenu]
  *     POST /api/orders  → [GuestReceipt] or [GuestRefusal]
- *     GET  /api/orders  → the [GuestOrder] list for the status page
+ *     GET  /api/orders  → [GuestOrdersEnvelope]: this phone's own orders, the queue as a count
  *
  * Nothing here writes the menu, the dough, what ran out or "clear all": the admin panel stays on the tablet,
  * behind the pattern lock. Everything an order changes goes through [OrderService.submit], which is where the
@@ -115,6 +125,10 @@ data class GuestResponse(
  * runs the first two before [GuestServer] reads a byte, so a request without the code costs no body parse.
  * Guest strings are filtered here, before they reach the service, because `printableOnly()` shares a
  * non-thread-safe encoder with the Compose form on the main thread.
+ *
+ * What a phone sees is filtered as well: [GUEST_TOKEN_HEADER] names the phone, and [guestView] hands back
+ * only the orders that phone placed. A guest never reads another guest's pizza — a page that merely hides
+ * the rows would still ship them over the WiFi.
  */
 class GuestApi(
     private val service: OrderService,
@@ -167,7 +181,7 @@ class GuestApi(
             } else methodNotAllowed("GET")
 
             "/api/orders" -> when (request.method) {
-                "GET" -> ok(json.encodeToString(GuestOrdersEnvelope.serializer(), GuestOrdersEnvelope(guestOrders())))
+                "GET" -> ok(json.encodeToString(GuestOrdersEnvelope.serializer(), guestView(request.guestToken)))
                 "POST" -> placeOrder(request)
                 else -> methodNotAllowed("GET, POST")
             }
@@ -188,6 +202,10 @@ class GuestApi(
 
         val idemKey = request.headers["idempotency-key"]?.trim()?.takeIf { it.isNotEmpty() }
 
+        // A phone sends the key it was handed last time, so a second order lands in the same list as the first.
+        // A shape we didn't hand out is ignored rather than trusted: it decides what a phone may see.
+        val token = request.guestToken?.takeIf(::isWellFormedGuestToken) ?: newGuestToken()
+
         // Check-then-store has to be one step, or two retries racing each other both get through.
         val outcome = postLock.withLock {
             if (idemKey != null) idempotency.get(idemKey)?.let { return@withLock Outcome.Repeat(it) }
@@ -206,11 +224,12 @@ class GuestApi(
                 customer = order.customer.printableOnlyOffMainThread(),
                 pizza = named,
                 note = order.note.replace('\n', ' ').printableOnlyOffMainThread(),
+                guestToken = token,
             )
             when (result) {
                 is Placed -> {
                     // Built once, used twice: the phone's answer and the next retry's must be the same slip.
-                    val body = receiptJson(result)
+                    val body = receiptJson(result, token)
                     idemKey?.let { idempotency.put(it, body) }
                     Outcome.Created(body)
                 }
@@ -226,11 +245,11 @@ class GuestApi(
         }
     }
 
-    private fun receiptJson(placed: Placed): String {
+    private fun receiptJson(placed: Placed, token: String): String {
         val orders = service.state.value.orders
         return json.encodeToString(
             GuestReceipt.serializer(),
-            GuestReceipt(order = publicOrder(placed.order, orders), printout = placed.printout),
+            GuestReceipt(order = ownOrder(placed.order, orders), printout = placed.printout, token = token),
         )
     }
 
@@ -274,13 +293,26 @@ class GuestApi(
         )
     }
 
-    /** Newest first, like the tablet's list; the status page only needs numbers and states. */
-    private fun guestOrders(): List<GuestOrder> {
+    /**
+     * What one phone may see: its own orders, and the queue as a bare count.
+     *
+     * Filtering happens here and not in the page: a pizza name the server sends is a pizza name anyone on
+     * the WiFi can read with `curl`, whether the page draws it or not.
+     */
+    private fun guestView(token: String?): GuestOrdersEnvelope {
         val orders = service.state.value.orders
-        return orders.map { publicOrder(it, orders) }
+        val mine = token?.let { own -> orders.filter { it.guestToken == own } }.orEmpty()
+        // The oldest open one is where the phone stands in line; a finished order is no position at all.
+        val firstOpen = mine.filter { !it.isDone() }.minByOrNull { it.id }
+        return GuestOrdersEnvelope(
+            mine = mine.map { ownOrder(it, orders) },
+            ahead = firstOpen?.ordersAheadIn(orders),
+            open = orders.count { !it.isDone() },
+        )
     }
 
-    private fun publicOrder(order: Order, orders: List<Order>) = GuestOrder(
+    /** Only ever called for an order the requesting phone placed: [guestView] decides that, not the caller's name. */
+    private fun ownOrder(order: Order, orders: List<Order>) = GuestOrder(
         number = order.number,
         pizza = order.pizza.name,
         status = order.status.name,
@@ -329,12 +361,37 @@ class GuestApi(
 
         /** The guest page, relative to the assets root. */
         const val PAGE_ASSET = "guest/index.html"
+
+        /**
+         * The header that names the phone, so `GET /api/orders` can answer with its own orders only.
+         *
+         * A header and not a query parameter: the URL is on the QR card, gets copied, and is passed around
+         * at the table — the token would travel with it and every phone would read every pizza again.
+         */
+        const val GUEST_TOKEN_HEADER = "x-guest-token"
+
+        /** 128 bits as hex, the shape [newGuestToken] hands out; anything else is a client's own idea. */
+        private val GUEST_TOKEN_SHAPE = Regex("[0-9a-f]{32}")
+
+        fun isWellFormedGuestToken(token: String) = GUEST_TOKEN_SHAPE.matches(token)
+
+        /** Not guessable, and not derived from the IP: two phones behind one NAT still get their own order list. */
+        fun newGuestToken(): String = ByteArray(16)
+            .also { SecureRandom().nextBytes(it) }
+            .joinToString("") { byte -> "%02x".format(byte) }
     }
 }
 
-/** `GET /api/orders` body. An object, not a bare list: a field can be added without breaking a page. */
+/** `GET /api/orders` body: this phone's own orders, and the queue as a bare count. */
 @Serializable
-data class GuestOrdersEnvelope(val orders: List<GuestOrder>)
+data class GuestOrdersEnvelope(
+    /** Only orders placed by the requesting phone, newest first; empty for a phone that ordered nothing yet. */
+    val mine: List<GuestOrder> = emptyList(),
+    /** Open orders placed before this phone's oldest open one; null when this phone has nothing open. */
+    val ahead: Int? = null,
+    /** Open orders in the kitchen — the number only, never whose they are or what's on them. */
+    val open: Int = 0,
+)
 
 /**
  * Remembers recent idempotency keys, oldest out first. In memory on purpose: a retry arrives seconds after

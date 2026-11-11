@@ -168,8 +168,16 @@ class OrderService(
      * rule that keeps an unusable order off the kitchen screen is checked inside the lock. The menu checks
      * and the write happen under the same mutex as the number and the dough, so a request can't be accepted
      * against a menu that was replaced a moment ago.
+     *
+     * @param guestToken the phone that placed the order, or null for one taken at the tablet. Stored, never
+     *   printed: it is what makes a guest's status page show their own pizza and nobody else's.
      */
-    suspend fun submit(customer: String, pizza: Pizza, note: String): SubmitResult {
+    suspend fun submit(
+        customer: String,
+        pizza: Pizza,
+        note: String,
+        guestToken: String? = null,
+    ): SubmitResult {
         val result = mutex.withLock {
             val current = _state.value
             val cleanCustomer = customer.trim().take(NAME_MAX)
@@ -202,6 +210,7 @@ class OrderService(
                 diet = current.menu.dietOf(pizza),
                 allergens = current.menu.allergensOf(pizza),
                 printed = false,
+                guestToken = guestToken,
             )
             val markup = current.printStyle.format(order, current.menu.funLinks.randomOrNull())
             val orders = listOf(order) + current.orders

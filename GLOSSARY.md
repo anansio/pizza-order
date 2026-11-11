@@ -8,6 +8,14 @@ Bestell-App für Pizza-Abende: Gäste bestellen am Tablet, die Küche arbeitet d
 Die Person, die eine Pizza bestellt — am Tablet oder vom eigenen Handy; erscheint mit Namen auf dem Ausdruck.
 _Avoid_: Kunde, Benutzer
 
+**Gast-Bestellung**:
+Eine Bestellung, die ein Gast vom eigenen Handy über die Gastseite aufgegeben hat, im Gegensatz zu einer am Tablet aufgenommenen. Sie trägt das Geräte-Token des Handys; nur damit erscheint sie auf dessen Statusseite.
+_Avoid_: Online-Bestellung, Handy-Bestellung
+
+**Geräte-Token**:
+Der Schlüssel, den ein Handy beim ersten Bestellen bekommt und im Browser speichert (32 Hex-Zeichen, zufällig). Er entscheidet, welche Bestellungen die Statusseite zeigt: die eigenen. Er ist kein Zugangscode — ohne ihn bestellt man genauso, sieht danach nur keine fremde Pizza.
+_Avoid_: Session, Login, Gast-ID
+
 **Bestellung**:
 Eine Pizza für einen Gast, mit fortlaufender Nummer, Uhrzeit und optionaler Notiz für die Küche.
 _Avoid_: Auftrag, Order
@@ -46,7 +54,7 @@ Die Übersicht aller Bestellungen, nach Status gruppiert (Tab „Bestellungen“
 _Avoid_: Queue
 
 **Warteschlange**:
-Die offenen Bestellungen in der Reihenfolge ihres Eingangs, also alles außer „Fertig“. Daraus ergibt sich die Position der Gäste („noch 2 vor dir“); die Zahl wird abgeleitet und nie gespeichert.
+Die offenen Bestellungen in der Reihenfolge ihres Eingangs, also alles außer „Fertig“. Daraus ergibt sich die Position der Gäste („noch 2 vor dir“); die Zahl wird abgeleitet und nie gespeichert. Auf der Gastseite ist die Warteschlange **nur diese Zahl** — wie viele Pizzen noch vor der eigenen kommen und wie viele offen sind, nie eine Liste.
 _Avoid_: Queue
 
 **Wartet / Im Ofen / Fertig**:

@@ -13,6 +13,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -175,6 +176,24 @@ class OrderServiceTest {
         // The print has meanwhile marked it on disk, which is the whole point of `printed`.
         assertEquals(service.state.value.orders.single(), orders().single())
         assertTrue(orders().single().printed)
+    }
+
+    @Test
+    fun theTokenOfThePhoneThatOrderedIsStoredWithTheOrderAndSurvivesAReload() = runBlocking {
+        val token = "0123456789abcdef0123456789abcdef"
+        val service = service(MenuConfig.Standard.menu.withDoughToday(5))
+        service.load()
+
+        val guest = service.submit("Anna", pizza(), "", guestToken = token).placed()
+        val tablet = service.submit("Küche", pizza(), "").placed()
+        awaitPrints(2)
+
+        assertEquals(token, guest.order.guestToken)
+        // Am Tablet aufgenommen: kein Token, also auf keinem Handy als "meine".
+        assertNull(tablet.order.guestToken)
+        // Ein Neustart darf die Zuordnung nicht verlieren, sonst sieht der Gast nach dem Absturz nichts mehr.
+        assertEquals(token, orders().first { it.customer == "Anna" }.guestToken)
+        assertNull(orders().first { it.customer == "Küche" }.guestToken)
     }
 
     @Test
